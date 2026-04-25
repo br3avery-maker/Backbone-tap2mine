@@ -105,3 +105,14 @@ footer { text-align: center; padding: 2rem 0; color: var(--text-dim); font-size:
 .divider::before, .divider::after { content: ''; position: absolute; top: 50%; width: 40%; height: 1px; background: var(--border); }
 .divider::before { left: 0; }
 .divider::after { right: 0; }
+
+/* Relay status */
+.relay-status {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  margin-bottom: 0.75rem;
+  display: inline-block;
+}
+.relay-status.connected { background: rgba(0, 214, 143, 0.15); color: var(--green); }
+.relay-status.disconnected { background: rgba(255, 107, 107, 0.15); color: var(--red); }

@@ -1,9 +1,11 @@
 // Tap2Mine Frontend — pure Wasm, anonymous chains, P2P microtransactions
 import init, { create_node, load_node, export_node, import_node, parse_handshake_link, generate_handshake_link, WasmNode } from '../wasm/tap2mine_node.js';
 import { WebRTCPeerManager, PeerMessage } from './webrtc';
+import { RelayClient, RelayMessage } from './relay-client';
 
 let node: WasmNode | null = null;
 let peerManager: WebRTCPeerManager | null = null;
+let relayClient: RelayClient | null = null;
 
 // --- IndexedDB helpers ---
 const DB_NAME = 'tap2mine';
@@ -186,7 +188,24 @@ async function loadNodeFile(file: File) {
   }
 }
 
-// --- Peer Message Handler ---
+// --- Relay Message Handler ---
+function handleRelayMessage(msg: RelayMessage) {
+  if (!node || !peerManager) return;
+  const data = msg.data as Record<string, unknown>;
+
+  if (data.type === 'webrtc-offer' && typeof data.sdp === 'string') {
+    peerManager.acceptOffer(data.sdp, node.node_id()).then(answer => {
+      relayClient?.send(msg.from, { type: 'webrtc-answer', sdp: answer });
+    }).catch(e => console.error('Failed to accept offer:', e));
+  } else if (data.type === 'webrtc-answer' && typeof data.sdp === 'string') {
+    peerManager.acceptAnswer(data.sdp).then(() => {
+      console.log('WebRTC connected via relay');
+      renderAll();
+    }).catch(e => console.error('Failed to accept answer:', e));
+  }
+}
+
+// --- Peer Message Handler (direct WebRTC) ---
 function handlePeerMessage(peerId: string, message: PeerMessage) {
   if (!node) return;
 
@@ -194,13 +213,11 @@ function handlePeerMessage(peerId: string, message: PeerMessage) {
     case 'transaction': {
       const txData = message.data as Record<string, unknown>;
       if (txData.block_type === 'send') {
-        // Received a send from peer — create receive confirmation
         const result = node.receive_send(JSON.stringify(txData));
         const parsed = JSON.parse(result);
         if (parsed.error) {
           console.error('Failed to receive transaction:', parsed.error);
         } else {
-          // Send acknowledgment back
           peerManager?.send(peerId, { type: 'handshake_ack', data: { received: true } });
           renderBlocks();
           renderNodeInfo();
@@ -224,10 +241,22 @@ function handlePeerMessage(peerId: string, message: PeerMessage) {
 // --- WebRTC Connection UI ---
 function showConnectModal() {
   document.getElementById('connect-modal')!.classList.add('active');
-  // Reset form
-  (document.getElementById('connect-mode') as HTMLSelectElement).value = 'create';
+  (document.getElementById('connect-mode') as HTMLSelectElement).value = 'relay';
   document.getElementById('connect-step')!.textContent = '1';
   showConnectStep(1);
+  updateRelayStatus();
+}
+
+function updateRelayStatus() {
+  const status = document.getElementById('relay-status');
+  if (!status || !relayClient) return;
+  const active = relayClient.getActiveRelay();
+  const relays = relayClient.getRelays();
+  const alive = relays.filter(r => r.status === 'alive').length;
+  status.textContent = active
+    ? `Via ${active.split('/')[2]} (${alive}/${relays.length} relays)`
+    : `No relay — using direct links`;
+  status.className = active ? 'relay-status connected' : 'relay-status disconnected';
 }
 
 function closeConnectModal() {
@@ -328,6 +357,45 @@ async function handleAcceptAnswer() {
   }
 }
 
+// --- Relay Connect ---
+async function handleRelayConnect() {
+  if (!node || !peerManager || !relayClient) {
+    alert('Relay not available. Use direct link mode instead.');
+    return;
+  }
+  const connectUrl = new URL(window.location.origin + window.location.pathname);
+  connectUrl.searchParams.set('relay_connect', node.node_id());
+  connectUrl.searchParams.set('pk', node.public_key());
+  document.getElementById('relay-link')!.textContent = connectUrl.toString();
+  document.getElementById('copy-relay-link')!.onclick = () => {
+    navigator.clipboard.writeText(connectUrl.toString());
+    alert('Connection link copied!');
+  };
+  showConnectStep(2);
+}
+
+async function handleAcceptRelayConnect() {
+  if (!node || !peerManager || !relayClient) {
+    alert('Relay not available.');
+    return;
+  }
+  const input = (document.getElementById('relay-connect-input') as HTMLTextAreaElement).value.trim();
+  if (!input) { alert('Paste the connection link'); return; }
+  try {
+    const url = new URL(input);
+    const remoteNodeId = url.searchParams.get('relay_connect');
+    const remotePk = url.searchParams.get('pk') || '';
+    if (!remoteNodeId) throw new Error('Invalid link format');
+    const offer = await peerManager.createOffer(remoteNodeId);
+    await relayClient.send(remoteNodeId, { type: 'webrtc-offer', sdp: offer });
+    node.add_peer(remoteNodeId, remotePk);
+    renderAll(); saveNode();
+    showConnectStep(3);
+  } catch (e) {
+    alert('Invalid link: ' + (e instanceof Error ? e.message : e));
+  }
+}
+
 // --- Send Value ---
 function showSendModal() {
   if (!node) return;
@@ -408,6 +476,15 @@ async function main() {
     // Initialize WebRTC peer manager
     peerManager = new WebRTCPeerManager(handlePeerMessage);
 
+    // Initialize relay client for signaling
+    relayClient = new RelayClient(node.node_id(), handleRelayMessage);
+    const relayOk = await relayClient.register();
+    if (relayOk) {
+      console.log(`[Relay] Connected to ${relayClient.getActiveRelay()}`);
+    } else {
+      console.warn('[Relay] All relays unreachable — falling back to direct links');
+    }
+
     renderAll();
   } catch (e) {
     console.error('Wasm init failed:', e);
@@ -429,32 +506,21 @@ document.getElementById('load-node')!.addEventListener('change', e => { const f 
 // P2P events
 document.getElementById('show-connect')!.addEventListener('click', showConnectModal);
 document.getElementById('close-connect')!.addEventListener('click', closeConnectModal);
+document.getElementById('relay-connect-btn')!.addEventListener('click', handleRelayConnect);
+document.getElementById('accept-relay-connect-btn')!.addEventListener('click', handleAcceptRelayConnect);
 document.getElementById('create-offer-btn')!.addEventListener('click', handleCreateOffer);
-document.getElementById('switch-to-accept')!.addEventListener('click', () => {
-  showConnectModal();
-  // Clear the dynamic step 2b content and restore the accept form
-  document.getElementById('connect-step-2b')!.innerHTML = `
-    <h3>Paste Their Connection Link</h3>
-    <p class="hint">Paste the link your peer sent you to accept the connection.</p>
-    <textarea id="answer-offer-input" placeholder="Paste the connection link"></textarea>
-    <button class="btn" id="accept-offer-btn">🔗 Generate Response Link</button>
-  `;
-  document.getElementById('accept-offer-btn')!.addEventListener('click', handleAcceptOffer);
-  showConnectStep(2);
-  // Show 2b instead of 2
-  document.getElementById('connect-step-2')!.style.display = 'none';
-  document.getElementById('connect-step-2b')!.style.display = 'block';
-});
+document.getElementById('accept-offer-btn')!.addEventListener('click', handleAcceptOffer);
 document.getElementById('accept-answer-btn')!.addEventListener('click', handleAcceptAnswer);
 
-// Mode switch in connect modal
+// Mode switch: relay vs direct
 document.getElementById('connect-mode')!.addEventListener('change', e => {
   const mode = (e.target as HTMLSelectElement).value;
-  if (mode === 'create') {
-    showConnectStep(1);
-  } else {
-    showConnectStep(2);
-  }
+  const isRelay = mode === 'relay';
+  document.getElementById('step-relay-text')!.style.display = isRelay ? 'block' : 'none';
+  document.getElementById('step-direct-text')!.style.display = isRelay ? 'none' : 'block';
+  document.getElementById('relay-connect-btn')!.style.display = isRelay ? 'inline-block' : 'none';
+  document.getElementById('direct-connect-btn')!.style.display = isRelay ? 'none' : 'inline-block';
+  showConnectStep(1);
 });
 
 document.getElementById('show-send')!.addEventListener('click', showSendModal);
@@ -469,6 +535,22 @@ document.getElementById('confirm-send')!.addEventListener('click', handleSend);
 //    → Originator opens this → connection completes automatically
 async function handleUrlConnection() {
   const params = new URLSearchParams(window.location.search);
+
+  // Case 0: Relay connect link — auto-connect via relay
+  if (params.has('relay_connect') && relayClient && node && peerManager) {
+    const remoteNodeId = params.get('relay_connect')!;
+    const remotePk = params.get('pk') || '';
+    try {
+      const offer = await peerManager.createOffer(remoteNodeId);
+      await relayClient.send(remoteNodeId, { type: 'webrtc-offer', sdp: offer });
+      node.add_peer(remoteNodeId, remotePk);
+      renderAll(); saveNode();
+      alert(`Connection request sent to ${truncate(remoteNodeId, 20)} via relay!`);
+    } catch (e) {
+      console.error('Relay connect failed:', e);
+    }
+    return;
+  }
 
   // Case 1: Someone sent you an offer link
   if (params.has('offer')) {
