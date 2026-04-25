@@ -225,7 +225,7 @@ function handlePeerMessage(peerId: string, message: PeerMessage) {
 function showConnectModal() {
   document.getElementById('connect-modal')!.classList.add('active');
   // Reset form
-  document.getElementById('connect-mode')!.value = 'create';
+  (document.getElementById('connect-mode') as HTMLSelectElement).value = 'create';
   document.getElementById('connect-step')!.textContent = '1';
   showConnectStep(1);
 }
@@ -340,7 +340,7 @@ function showSendModal() {
     const peers = peerManager.getConnectedPeers();
     select.innerHTML = peers.length === 0
       ? '<option value="">No connected peers</option>'
-      : peers.map(p => `<option value="${p.nodeId}">${truncate(p.nodeId, 20)} (${p.chaoAddress || p.public_key ? '✓' : '?'})</option>`).join('');
+      : peers.map(p => `<option value="${p.nodeId}">${truncate(p.nodeId, 20)} (${p.chaoAddress || p.publicKey ? '✓' : '?'})</option>`).join('');
   }
 }
 
@@ -364,7 +364,7 @@ function handleSend() {
     return;
   }
 
-  const result = JSON.parse(node.create_send(toPeerId, peer.publicKey || '', amount));
+  const result = JSON.parse(node.create_send(toPeerId, peer.publicKey || '', BigInt(amount)));
   if (result.error) {
     alert('Send failed: ' + result.error);
     return;
@@ -489,7 +489,7 @@ async function handleUrlConnection() {
       responseUrl.searchParams.set('pk', node.public_key());
 
       showConnectModal();
-      document.getElementById('connect-mode')!.value = 'answer';
+      (document.getElementById('connect-mode') as HTMLSelectElement).value = 'answer';
 
       // Show the response link
       const step2b = document.getElementById('connect-step-2b')!;
