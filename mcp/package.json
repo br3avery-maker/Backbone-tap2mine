@@ -1,0 +1,12 @@
+{
+  "name": "tap2mine-mcp",
+  "version": "0.1.0-alpha",
+  "type": "module",
+  "description": "MCP server for Tap2Mine blocklattice node",
+  "scripts": {
+    "start": "node mcp-server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}
