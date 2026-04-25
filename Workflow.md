@@ -18,6 +18,7 @@
 | Local storage | Filesystem + BadgerDB or BoltDB (embedded, no external deps) |
 | P2P | WebRTC DataChannels or libp2p |
 | API | JSON-RPC over HTTP (localhost only) |
+| Agent Interface | MCP server + OpenClaw skill (LLM hackathon) |
 | Frontend | Vite + TypeScript + vanilla JS/React |
 | Deploy | Static build → IPFS |
 
@@ -112,6 +113,40 @@ Each incoming block is validated:
 
 ---
 
+## Phase 4.5: Agent Skill & LLM API
+
+### Step 8.5: MCP Server
+Expose the node's JSON-RPC API as an **MCP (Model Context Protocol)** server so LLM agents can interact with it natively:
+- `get_node_info` — return node status, chain length, uptime
+- `get_chain` — read blocks with pagination
+- `get_balance` — current balance
+- `send_transaction` — compose, sign, and submit a transaction
+- `get_peers` — list connected peers
+- `get_entropy_seed` — current tap-derived seed
+- `export_keystore` — encrypted backup
+- `import_keystore` — restore from backup
+
+**Artifact:** `node/mcp/` — MCP server wrapping the JSON-RPC API
+
+### Step 8.6: OpenClaw / Agent Skill
+Package the node as an **agent skill** for the LLM hackathon:
+- Skill definition file declares available tools and their descriptions
+- LLM agents can discover and call node operations through a standardized interface
+- Supports both MCP transport and HTTP JSON-RPC fallback
+- Skill config: `~/.openclaw/skills/tap2mine/SKILL.md` + tool definitions
+
+**Artifact:** `node/skill/` — agent skill package (SKILL.md, tool definitions, config schema)
+
+### Step 8.7: API Contract (Machine-Readable)
+Publish the full API as an **OpenAPI spec** alongside the MCP tools:
+- Enables any LLM to understand the node's capabilities without custom integration
+- Auto-generates client libraries in any language
+- Served at `localhost:<port>/api/schema.json`
+
+**Artifact:** `node/api/schema.json` — OpenAPI 3.1 spec
+
+---
+
 ## Phase 5: Frontend (Static Site)
 
 ### Step 9: Web Dashboard
@@ -137,6 +172,7 @@ Hand the JSON-RPC contract to an LLM to generate polished UI components (React w
 | M1 | Node Init | `go run main.go init` generates keys + genesis block |
 | M2 | Tap Engine | User taps → entropy → new blocks appear in local DB |
 | M3 | API Server | `go run main.go serve` starts localhost JSON-RPC |
+| M3.5 | Agent Skill | MCP server + agent skill package, LLM can control node |
 | M4 | P2P Sync | Two nodes on same machine sync blocks over WebRTC |
 | M5 | Frontend | Static site connects to local node, shows chain + tap activity |
 | M6 | IPFS Ready | `npm run build` produces static output, published to IPFS |
