@@ -1,0 +1,37 @@
+[package]
+name = "tap2mine-node"
+version = "0.1.0-alpha"
+edition = "2021"
+description = "Decentralized blocklattice node — tap-to-mine, compiled to WebAssembly"
+license = "MIT"
+repository = "https://github.com/br3avery-maker/Backbone-tap2mine"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde-wasm-bindgen = "0.6"
+serde_json = "1.0"
+getrandom = { version = "0.2", features = ["js"] }
+sha2 = "0.10"
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+hex = "0.4"
+uuid = { version = "1.7", features = ["v4", "serde", "js"] }
+chrono = { version = "0.4", features = ["serde"] }
+web-sys = { version = "0.3", features = [
+    "Window",
+    "Storage",
+    "console",
+] }
+gloo-timers = { version = "0.3", features = ["futures"] }
+js-sys = "0.3"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+[profile.release]
+opt-level = "s"
+lto = true

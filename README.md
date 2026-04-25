@@ -7,30 +7,39 @@ A decentralized blocklattice network where every user runs their own node with t
 - **Blocklattice** — Each user has a personal chain (like Nano's architecture)
 - **Tap-to-Mine** — User interactions generate entropy that seeds new blocks
 - **P2P** — Nodes gossip blocks directly via WebRTC (coming soon)
-- **Local-first** — All state lives on the user's machine
+- **Local-first** — All state lives in the browser (IndexedDB)
+- **Wasm-native** — Compiled to WebAssembly, runs entirely in the browser
 - **LLM-ready** — MCP server for AI agent integration
 
 ## Quick Start
 
-### Node (Go)
+### Build the Wasm Module
 
 ```bash
 cd node
+cargo build --target wasm32-unknown-unknown --release
+# Output: target/wasm32-unknown-unknown/release/tap2mine_node.wasm (~600KB)
+```
 
-# Initialize node (generates keys + genesis block)
-./tap2mine init
+### Use in the Browser
 
-# Show node info
-./tap2mine info
+```javascript
+import init, { create_node, load_node } from './tap2mine_node.js';
 
-# Start JSON-RPC API server
-./tap2mine serve
+await init();
 
-# Tap-to-mine mode (CLI)
-./tap2mine tap
+// Create a new node (generates keys + genesis block)
+const node = create_node();
 
-# Start MCP server for LLM agents
-./tap2mine mcp
+// Check node info
+console.log(JSON.parse(node.info()));
+
+// Feed tap entropy
+node.add_tap(event.clientX, event.clientY);
+
+// Try to mine a block (returns block JSON if enough entropy)
+const newBlock = node.try_mine();
+if (newBlock) console.log('New block:', JSON.parse(newBlock));
 ```
 
 ### Frontend
@@ -42,52 +51,43 @@ npm run dev    # Development server
 npm run build  # Static output → IPFS
 ```
 
-## Commands
+## Wasm API
 
-| Command | Description |
-|---------|-------------|
-| `tap2mine init` | Initialize node (keys + genesis) |
-| `tap2mine serve` | Start JSON-RPC API on localhost:8765 |
-| `tap2mine info` | Show node status and chain info |
-| `tap2mine tap` | Enter tap-to-mine mode (simulated) |
-| `tap2mine mcp` | Start MCP server for LLM integration |
-
-## API
-
-The JSON-RPC API is available at `http://localhost:8765/rpc` when running `tap2mine serve`.
-
-Full API schema: `http://localhost:8765/api/schema.json`
-
-### Methods
-
-- `NodeInfo` — Node status and chain info
-- `GetChain(start, limit)` — Read blocks with pagination
-- `GetBalance()` — Current balance (placeholder)
-- `GetPeers()` — Connected P2P peers (placeholder)
-- `GetEntropySeed()` — Current tap-derived entropy seed
-- `ExportKeystore()` — Encrypted wallet backup
+| Function | Description |
+|----------|-------------|
+| `create_node()` | Create new node with keys + genesis block |
+| `load_node(keystore, chain)` | Restore node from saved data |
+| `node.info()` | Node status and chain info (JSON) |
+| `node.get_chain(start, limit)` | Read blocks with pagination (JSON array) |
+| `node.add_tap(x, y)` | Feed tap entropy |
+| `node.add_move(x, y)` | Feed mouse move entropy |
+| `node.add_scroll(delta)` | Feed scroll entropy |
+| `node.try_mine()` | Produce block if entropy ready (JSON or empty) |
+| `node.get_entropy()` | Current seed status (JSON) |
+| `node.export_keystore()` | Backup keystore (JSON) |
+| `node.verify_block(json)` | Validate block signature (bool) |
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Node | Go (Ed25519, SHA-256) |
-| Storage | Filesystem (block files) |
-| API | JSON-RPC over HTTP |
-| Agent | MCP (Model Context Protocol) |
+| Node | Rust → WebAssembly |
+| Crypto | Ed25519 (ed25519-dalek), SHA-256 |
+| Storage | IndexedDB (browser) |
+| P2P | WebRTC (via web-sys) |
 | Frontend | Vite + TypeScript |
 | Deploy | Static → IPFS |
 
 ## Milestones
 
-- [x] M1: Node Init — Key generation + genesis block
+- [x] M1: Node Init — Key generation + genesis block in Wasm
 - [x] M2: Tap Engine — Entropy collection + block production
-- [x] M3: API Server — JSON-RPC localhost server
-- [x] M3.5: Agent Skill — MCP server + OpenClaw skill
+- [x] M3: Wasm API — All functions exported via wasm-bindgen
+- [ ] M3.5: Agent Skill — MCP server + OpenClaw skill
 - [ ] M4: P2P Sync — WebRTC block gossip
-- [ ] M5: Frontend — Static dashboard connected to local node
-- [ ] M6: IPFS Ready — Deployable static build
-- [ ] M7: Binary Release — Cross-platform binaries
+- [ ] M5: IndexedDB — Persistent storage
+- [ ] M6: Frontend — Static dashboard loading Wasm
+- [ ] M7: IPFS Ready — Deployable static build
 
 ## License
 

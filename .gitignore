@@ -1,14 +1,12 @@
-# Binaries
-/tap2mine
-node/tap2mine
+# Rust
+node/target/
+node/Cargo.lock
 
-# Dependencies
+# Node.js
 node_modules/
-
-# Build output
 frontend/dist/
 
-# OS files
+# OS
 .DS_Store
 Thumbs.db
 
@@ -16,5 +14,6 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Tap2Mine data
-.tap2mine/
+# Wasm output (optional — commit if you want distributable binaries)
+# *.wasm
+# *.js
