@@ -1,398 +1,59 @@
 /* @ts-self-types="./tap2mine_node.d.ts" */
 
-export class Block {
-    static __wrap(ptr) {
-        ptr = ptr >>> 0;
-        const obj = Object.create(Block.prototype);
-        obj.__wbg_ptr = ptr;
-        BlockFinalization.register(obj, obj.__wbg_ptr, obj);
-        return obj;
-    }
-    __destroy_into_raw() {
-        const ptr = this.__wbg_ptr;
-        this.__wbg_ptr = 0;
-        BlockFinalization.unregister(this);
-        return ptr;
-    }
-    free() {
-        const ptr = this.__destroy_into_raw();
-        wasm.__wbg_block_free(ptr, 0);
-    }
-    /**
-     * @param {string} json
-     * @returns {Block}
-     */
-    static from_json(json) {
-        const ptr0 = passStringToWasm0(json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.block_from_json(ptr0, len0);
-        if (ret[2]) {
-            throw takeFromExternrefTable0(ret[1]);
-        }
-        return Block.__wrap(ret[0]);
-    }
-    /**
-     * @param {Block} prev
-     * @param {Keystore} ks
-     * @param {string} seed
-     * @returns {Block}
-     */
-    static from_prev(prev, ks, seed) {
-        _assertClass(prev, Block);
-        _assertClass(ks, Keystore);
-        const ptr0 = passStringToWasm0(seed, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.block_from_prev(prev.__wbg_ptr, ks.__wbg_ptr, ptr0, len0);
-        return Block.__wrap(ret);
-    }
-    /**
-     * @returns {string}
-     */
-    hash() {
-        let deferred1_0;
-        let deferred1_1;
-        try {
-            const ret = wasm.block_hash(this.__wbg_ptr);
-            deferred1_0 = ret[0];
-            deferred1_1 = ret[1];
-            return getStringFromWasm0(ret[0], ret[1]);
-        } finally {
-            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
-        }
-    }
-    constructor() {
-        const ret = wasm.block_new();
-        this.__wbg_ptr = ret >>> 0;
-        BlockFinalization.register(this, this.__wbg_ptr, this);
-        return this;
-    }
-    /**
-     * @returns {string}
-     */
-    node_id() {
-        let deferred1_0;
-        let deferred1_1;
-        try {
-            const ret = wasm.block_node_id(this.__wbg_ptr);
-            deferred1_0 = ret[0];
-            deferred1_1 = ret[1];
-            return getStringFromWasm0(ret[0], ret[1]);
-        } finally {
-            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
-        }
-    }
-    /**
-     * @returns {string}
-     */
-    prev_hash() {
-        let deferred1_0;
-        let deferred1_1;
-        try {
-            const ret = wasm.block_prev_hash(this.__wbg_ptr);
-            deferred1_0 = ret[0];
-            deferred1_1 = ret[1];
-            return getStringFromWasm0(ret[0], ret[1]);
-        } finally {
-            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
-        }
-    }
-    /**
-     * @returns {string}
-     */
-    seed() {
-        let deferred1_0;
-        let deferred1_1;
-        try {
-            const ret = wasm.block_seed(this.__wbg_ptr);
-            deferred1_0 = ret[0];
-            deferred1_1 = ret[1];
-            return getStringFromWasm0(ret[0], ret[1]);
-        } finally {
-            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
-        }
-    }
-    /**
-     * @returns {bigint}
-     */
-    sequence() {
-        const ret = wasm.block_sequence(this.__wbg_ptr);
-        return BigInt.asUintN(64, ret);
-    }
-    /**
-     * @returns {string}
-     */
-    signature() {
-        let deferred1_0;
-        let deferred1_1;
-        try {
-            const ret = wasm.block_signature(this.__wbg_ptr);
-            deferred1_0 = ret[0];
-            deferred1_1 = ret[1];
-            return getStringFromWasm0(ret[0], ret[1]);
-        } finally {
-            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
-        }
-    }
-    /**
-     * @returns {bigint}
-     */
-    timestamp() {
-        const ret = wasm.block_timestamp(this.__wbg_ptr);
-        return ret;
-    }
-    /**
-     * @returns {string}
-     */
-    to_json() {
-        let deferred1_0;
-        let deferred1_1;
-        try {
-            const ret = wasm.block_to_json(this.__wbg_ptr);
-            deferred1_0 = ret[0];
-            deferred1_1 = ret[1];
-            return getStringFromWasm0(ret[0], ret[1]);
-        } finally {
-            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
-        }
-    }
-}
-if (Symbol.dispose) Block.prototype[Symbol.dispose] = Block.prototype.free;
-
 /**
- * Collects user interaction entropy and derives block seeds
+ * Wasm wrapper around the core Node.
+ * The native Node has no wasm_bindgen attributes; this struct bridges them.
  */
-export class EntropyPool {
+export class WasmNode {
+    static __wrap(ptr) {
+        ptr = ptr >>> 0;
+        const obj = Object.create(WasmNode.prototype);
+        obj.__wbg_ptr = ptr;
+        WasmNodeFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
     __destroy_into_raw() {
         const ptr = this.__wbg_ptr;
         this.__wbg_ptr = 0;
-        EntropyPoolFinalization.unregister(this);
+        WasmNodeFinalization.unregister(this);
         return ptr;
     }
     free() {
         const ptr = this.__destroy_into_raw();
-        wasm.__wbg_entropypool_free(ptr, 0);
+        wasm.__wbg_wasmnode_free(ptr, 0);
     }
     /**
      * @param {number} x
      * @param {number} y
      */
     add_move(x, y) {
-        wasm.entropypool_add_move(this.__wbg_ptr, x, y);
+        wasm.wasmnode_add_move(this.__wbg_ptr, x, y);
     }
     /**
      * @param {number} delta
      */
     add_scroll(delta) {
-        wasm.entropypool_add_scroll(this.__wbg_ptr, delta);
+        wasm.wasmnode_add_scroll(this.__wbg_ptr, delta);
     }
     /**
      * @param {number} x
      * @param {number} y
      */
     add_tap(x, y) {
-        wasm.entropypool_add_tap(this.__wbg_ptr, x, y);
-    }
-    /**
-     * @returns {number}
-     */
-    count() {
-        const ret = wasm.entropypool_count(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-    /**
-     * Returns JSON: {"seed": "hex...", "ready": bool}
-     * @returns {string}
-     */
-    derive_seed() {
-        let deferred1_0;
-        let deferred1_1;
-        try {
-            const ret = wasm.entropypool_derive_seed(this.__wbg_ptr);
-            deferred1_0 = ret[0];
-            deferred1_1 = ret[1];
-            return getStringFromWasm0(ret[0], ret[1]);
-        } finally {
-            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
-        }
-    }
-    constructor() {
-        const ret = wasm.entropypool_new();
-        this.__wbg_ptr = ret >>> 0;
-        EntropyPoolFinalization.register(this, this.__wbg_ptr, this);
-        return this;
-    }
-    reset() {
-        wasm.entropypool_reset(this.__wbg_ptr);
-    }
-}
-if (Symbol.dispose) EntropyPool.prototype[Symbol.dispose] = EntropyPool.prototype.free;
-
-export class Keystore {
-    static __wrap(ptr) {
-        ptr = ptr >>> 0;
-        const obj = Object.create(Keystore.prototype);
-        obj.__wbg_ptr = ptr;
-        KeystoreFinalization.register(obj, obj.__wbg_ptr, obj);
-        return obj;
-    }
-    __destroy_into_raw() {
-        const ptr = this.__wbg_ptr;
-        this.__wbg_ptr = 0;
-        KeystoreFinalization.unregister(this);
-        return ptr;
-    }
-    free() {
-        const ptr = this.__destroy_into_raw();
-        wasm.__wbg_keystore_free(ptr, 0);
-    }
-    /**
-     * @param {string} json
-     * @returns {Keystore}
-     */
-    static from_json(json) {
-        const ptr0 = passStringToWasm0(json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.keystore_from_json(ptr0, len0);
-        if (ret[2]) {
-            throw takeFromExternrefTable0(ret[1]);
-        }
-        return Keystore.__wrap(ret[0]);
-    }
-    constructor() {
-        const ret = wasm.keystore_new();
-        this.__wbg_ptr = ret >>> 0;
-        KeystoreFinalization.register(this, this.__wbg_ptr, this);
-        return this;
-    }
-    /**
-     * @returns {string}
-     */
-    node_id() {
-        let deferred1_0;
-        let deferred1_1;
-        try {
-            const ret = wasm.keystore_node_id(this.__wbg_ptr);
-            deferred1_0 = ret[0];
-            deferred1_1 = ret[1];
-            return getStringFromWasm0(ret[0], ret[1]);
-        } finally {
-            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
-        }
-    }
-    /**
-     * @returns {string}
-     */
-    public_key() {
-        let deferred1_0;
-        let deferred1_1;
-        try {
-            const ret = wasm.keystore_public_key(this.__wbg_ptr);
-            deferred1_0 = ret[0];
-            deferred1_1 = ret[1];
-            return getStringFromWasm0(ret[0], ret[1]);
-        } finally {
-            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
-        }
-    }
-    /**
-     * @param {Uint8Array} message
-     * @returns {string}
-     */
-    sign(message) {
-        let deferred2_0;
-        let deferred2_1;
-        try {
-            const ptr0 = passArray8ToWasm0(message, wasm.__wbindgen_malloc);
-            const len0 = WASM_VECTOR_LEN;
-            const ret = wasm.keystore_sign(this.__wbg_ptr, ptr0, len0);
-            deferred2_0 = ret[0];
-            deferred2_1 = ret[1];
-            return getStringFromWasm0(ret[0], ret[1]);
-        } finally {
-            wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
-        }
-    }
-    /**
-     * @returns {string}
-     */
-    to_json() {
-        let deferred1_0;
-        let deferred1_1;
-        try {
-            const ret = wasm.keystore_to_json(this.__wbg_ptr);
-            deferred1_0 = ret[0];
-            deferred1_1 = ret[1];
-            return getStringFromWasm0(ret[0], ret[1]);
-        } finally {
-            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
-        }
-    }
-    /**
-     * @param {Uint8Array} message
-     * @param {string} sig_hex
-     * @returns {boolean}
-     */
-    verify(message, sig_hex) {
-        const ptr0 = passArray8ToWasm0(message, wasm.__wbindgen_malloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(sig_hex, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.keystore_verify(this.__wbg_ptr, ptr0, len0, ptr1, len1);
-        return ret !== 0;
-    }
-}
-if (Symbol.dispose) Keystore.prototype[Symbol.dispose] = Keystore.prototype.free;
-
-export class Node {
-    static __wrap(ptr) {
-        ptr = ptr >>> 0;
-        const obj = Object.create(Node.prototype);
-        obj.__wbg_ptr = ptr;
-        NodeFinalization.register(obj, obj.__wbg_ptr, obj);
-        return obj;
-    }
-    __destroy_into_raw() {
-        const ptr = this.__wbg_ptr;
-        this.__wbg_ptr = 0;
-        NodeFinalization.unregister(this);
-        return ptr;
-    }
-    free() {
-        const ptr = this.__destroy_into_raw();
-        wasm.__wbg_node_free(ptr, 0);
-    }
-    /**
-     * @param {number} x
-     * @param {number} y
-     */
-    add_move(x, y) {
-        wasm.node_add_move(this.__wbg_ptr, x, y);
-    }
-    /**
-     * @param {number} delta
-     */
-    add_scroll(delta) {
-        wasm.node_add_scroll(this.__wbg_ptr, delta);
-    }
-    /**
-     * @param {number} x
-     * @param {number} y
-     */
-    add_tap(x, y) {
-        wasm.node_add_tap(this.__wbg_ptr, x, y);
+        wasm.wasmnode_add_tap(this.__wbg_ptr, x, y);
     }
     /**
      * @returns {number}
      */
     chain_len() {
-        const ret = wasm.node_chain_len(this.__wbg_ptr);
+        const ret = wasm.wasmnode_chain_len(this.__wbg_ptr);
         return ret >>> 0;
     }
     /**
      * @returns {number}
      */
     entropy_count() {
-        const ret = wasm.node_entropy_count(this.__wbg_ptr);
+        const ret = wasm.wasmnode_entropy_count(this.__wbg_ptr);
         return ret >>> 0;
     }
     /**
@@ -402,7 +63,7 @@ export class Node {
         let deferred1_0;
         let deferred1_1;
         try {
-            const ret = wasm.node_export_chain(this.__wbg_ptr);
+            const ret = wasm.wasmnode_export_chain(this.__wbg_ptr);
             deferred1_0 = ret[0];
             deferred1_1 = ret[1];
             return getStringFromWasm0(ret[0], ret[1]);
@@ -417,29 +78,13 @@ export class Node {
         let deferred1_0;
         let deferred1_1;
         try {
-            const ret = wasm.node_export_keystore(this.__wbg_ptr);
+            const ret = wasm.wasmnode_export_keystore(this.__wbg_ptr);
             deferred1_0 = ret[0];
             deferred1_1 = ret[1];
             return getStringFromWasm0(ret[0], ret[1]);
         } finally {
             wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
         }
-    }
-    /**
-     * @param {string} keystore_json
-     * @param {string} chain_json
-     * @returns {Node}
-     */
-    static from_data(keystore_json, chain_json) {
-        const ptr0 = passStringToWasm0(keystore_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(chain_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.node_from_data(ptr0, len0, ptr1, len1);
-        if (ret[2]) {
-            throw takeFromExternrefTable0(ret[1]);
-        }
-        return Node.__wrap(ret[0]);
     }
     /**
      * @param {number} start
@@ -450,7 +95,7 @@ export class Node {
         let deferred1_0;
         let deferred1_1;
         try {
-            const ret = wasm.node_get_chain(this.__wbg_ptr, start, limit);
+            const ret = wasm.wasmnode_get_chain(this.__wbg_ptr, start, limit);
             deferred1_0 = ret[0];
             deferred1_1 = ret[1];
             return getStringFromWasm0(ret[0], ret[1]);
@@ -465,7 +110,7 @@ export class Node {
         let deferred1_0;
         let deferred1_1;
         try {
-            const ret = wasm.node_get_entropy(this.__wbg_ptr);
+            const ret = wasm.wasmnode_get_entropy(this.__wbg_ptr);
             deferred1_0 = ret[0];
             deferred1_1 = ret[1];
             return getStringFromWasm0(ret[0], ret[1]);
@@ -474,14 +119,13 @@ export class Node {
         }
     }
     /**
-     * Returns JSON: {node_id, public_key, chain_len, genesis_hash, latest_hash}
      * @returns {string}
      */
     info() {
         let deferred1_0;
         let deferred1_1;
         try {
-            const ret = wasm.node_info(this.__wbg_ptr);
+            const ret = wasm.wasmnode_info(this.__wbg_ptr);
             deferred1_0 = ret[0];
             deferred1_1 = ret[1];
             return getStringFromWasm0(ret[0], ret[1]);
@@ -496,7 +140,7 @@ export class Node {
         let deferred1_0;
         let deferred1_1;
         try {
-            const ret = wasm.node_latest_block(this.__wbg_ptr);
+            const ret = wasm.wasmnode_latest_block(this.__wbg_ptr);
             deferred1_0 = ret[0];
             deferred1_1 = ret[1];
             return getStringFromWasm0(ret[0], ret[1]);
@@ -505,21 +149,19 @@ export class Node {
         }
     }
     constructor() {
-        const ret = wasm.node_new();
+        const ret = wasm.wasmnode_new();
         this.__wbg_ptr = ret >>> 0;
-        NodeFinalization.register(this, this.__wbg_ptr, this);
+        WasmNodeFinalization.register(this, this.__wbg_ptr, this);
         return this;
     }
     /**
-     * If enough entropy accumulated, produce a new block and return its JSON.
-     * Returns empty string if not ready.
      * @returns {string}
      */
     try_mine() {
         let deferred1_0;
         let deferred1_1;
         try {
-            const ret = wasm.node_try_mine(this.__wbg_ptr);
+            const ret = wasm.wasmnode_try_mine(this.__wbg_ptr);
             deferred1_0 = ret[0];
             deferred1_1 = ret[1];
             return getStringFromWasm0(ret[0], ret[1]);
@@ -534,28 +176,28 @@ export class Node {
     verify_block(block_json) {
         const ptr0 = passStringToWasm0(block_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.node_verify_block(this.__wbg_ptr, ptr0, len0);
+        const ret = wasm.wasmnode_verify_block(this.__wbg_ptr, ptr0, len0);
         return ret !== 0;
     }
 }
-if (Symbol.dispose) Node.prototype[Symbol.dispose] = Node.prototype.free;
+if (Symbol.dispose) WasmNode.prototype[Symbol.dispose] = WasmNode.prototype.free;
 
 /**
- * @returns {Node}
+ * @returns {WasmNode}
  */
 export function create_node() {
     const ret = wasm.create_node();
-    return Node.__wrap(ret);
+    return WasmNode.__wrap(ret);
 }
 
-export function init() {
-    wasm.init();
+export function init_wasm() {
+    wasm.init_wasm();
 }
 
 /**
  * @param {string} keystore_json
  * @param {string} chain_json
- * @returns {Node}
+ * @returns {WasmNode}
  */
 export function load_node(keystore_json, chain_json) {
     const ptr0 = passStringToWasm0(keystore_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -566,7 +208,7 @@ export function load_node(keystore_json, chain_json) {
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
-    return Node.__wrap(ret[0]);
+    return WasmNode.__wrap(ret[0]);
 }
 function __wbg_get_imports() {
     const import0 = {
@@ -574,13 +216,6 @@ function __wbg_get_imports() {
         __wbg_Error_960c155d3d49e4c2: function(arg0, arg1) {
             const ret = Error(getStringFromWasm0(arg0, arg1));
             return ret;
-        },
-        __wbg___wbindgen_debug_string_ab4b34d23d6778bd: function(arg0, arg1) {
-            const ret = debugString(arg1);
-            const ptr1 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-            const len1 = WASM_VECTOR_LEN;
-            getDataViewMemory0().setInt32(arg0 + 4 * 1, len1, true);
-            getDataViewMemory0().setInt32(arg0 + 4 * 0, ptr1, true);
         },
         __wbg___wbindgen_is_function_3baa9db1a987f47d: function(arg0) {
             const ret = typeof(arg0) === 'function';
@@ -703,18 +338,9 @@ function __wbg_get_imports() {
     };
 }
 
-const BlockFinalization = (typeof FinalizationRegistry === 'undefined')
+const WasmNodeFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_block_free(ptr >>> 0, 1));
-const EntropyPoolFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_entropypool_free(ptr >>> 0, 1));
-const KeystoreFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_keystore_free(ptr >>> 0, 1));
-const NodeFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_node_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_wasmnode_free(ptr >>> 0, 1));
 
 function addToExternrefTable0(obj) {
     const idx = wasm.__externref_table_alloc();
@@ -722,88 +348,9 @@ function addToExternrefTable0(obj) {
     return idx;
 }
 
-function _assertClass(instance, klass) {
-    if (!(instance instanceof klass)) {
-        throw new Error(`expected instance of ${klass.name}`);
-    }
-}
-
-function debugString(val) {
-    // primitive types
-    const type = typeof val;
-    if (type == 'number' || type == 'boolean' || val == null) {
-        return  `${val}`;
-    }
-    if (type == 'string') {
-        return `"${val}"`;
-    }
-    if (type == 'symbol') {
-        const description = val.description;
-        if (description == null) {
-            return 'Symbol';
-        } else {
-            return `Symbol(${description})`;
-        }
-    }
-    if (type == 'function') {
-        const name = val.name;
-        if (typeof name == 'string' && name.length > 0) {
-            return `Function(${name})`;
-        } else {
-            return 'Function';
-        }
-    }
-    // objects
-    if (Array.isArray(val)) {
-        const length = val.length;
-        let debug = '[';
-        if (length > 0) {
-            debug += debugString(val[0]);
-        }
-        for(let i = 1; i < length; i++) {
-            debug += ', ' + debugString(val[i]);
-        }
-        debug += ']';
-        return debug;
-    }
-    // Test for built-in
-    const builtInMatches = /\[object ([^\]]+)\]/.exec(toString.call(val));
-    let className;
-    if (builtInMatches && builtInMatches.length > 1) {
-        className = builtInMatches[1];
-    } else {
-        // Failed to match the standard '[object ClassName]'
-        return toString.call(val);
-    }
-    if (className == 'Object') {
-        // we're a user defined class or Object
-        // JSON.stringify avoids problems with cycles, and is generally much
-        // easier than looping through ownProperties of `val`.
-        try {
-            return 'Object(' + JSON.stringify(val) + ')';
-        } catch (_) {
-            return 'Object';
-        }
-    }
-    // errors
-    if (val instanceof Error) {
-        return `${val.name}: ${val.message}\n${val.stack}`;
-    }
-    // TODO we could test for more things here, like `Set`s and `Map`s.
-    return className;
-}
-
 function getArrayU8FromWasm0(ptr, len) {
     ptr = ptr >>> 0;
     return getUint8ArrayMemory0().subarray(ptr / 1, ptr / 1 + len);
-}
-
-let cachedDataViewMemory0 = null;
-function getDataViewMemory0() {
-    if (cachedDataViewMemory0 === null || cachedDataViewMemory0.buffer.detached === true || (cachedDataViewMemory0.buffer.detached === undefined && cachedDataViewMemory0.buffer !== wasm.memory.buffer)) {
-        cachedDataViewMemory0 = new DataView(wasm.memory.buffer);
-    }
-    return cachedDataViewMemory0;
 }
 
 function getStringFromWasm0(ptr, len) {
@@ -830,13 +377,6 @@ function handleError(f, args) {
 
 function isLikeNone(x) {
     return x === undefined || x === null;
-}
-
-function passArray8ToWasm0(arg, malloc) {
-    const ptr = malloc(arg.length * 1, 1) >>> 0;
-    getUint8ArrayMemory0().set(arg, ptr / 1);
-    WASM_VECTOR_LEN = arg.length;
-    return ptr;
 }
 
 function passStringToWasm0(arg, malloc, realloc) {
@@ -915,7 +455,6 @@ let wasmModule, wasm;
 function __wbg_finalize_init(instance, module) {
     wasm = instance.exports;
     wasmModule = module;
-    cachedDataViewMemory0 = null;
     cachedUint8ArrayMemory0 = null;
     wasm.__wbindgen_start();
     return wasm;

@@ -1,34 +1,29 @@
-use wasm_bindgen::prelude::*;
 use sha2::{Sha256, Digest};
 use crate::crypto::Keystore;
 use crate::blocklattice::Block;
 
-/// Collects user interaction entropy and derives block seeds
-#[wasm_bindgen]
 pub struct EntropyPool {
     buffer: Vec<String>,
     max_size: usize,
 }
 
-#[wasm_bindgen]
 impl EntropyPool {
-    #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         EntropyPool { buffer: Vec::with_capacity(1024), max_size: 1024 }
     }
 
     pub fn add_tap(&mut self, x: f64, y: f64) {
-        self.buffer.push(format!("tap:{}:{}:{}", js_sys::Date::now(), x, y));
+        self.buffer.push(format!("tap:{}:{}:{}", crate::now_ms(), x, y));
         self.trim();
     }
 
     pub fn add_move(&mut self, x: f64, y: f64) {
-        self.buffer.push(format!("move:{}:{}:{}", js_sys::Date::now(), x, y));
+        self.buffer.push(format!("move:{}:{}:{}", crate::now_ms(), x, y));
         self.trim();
     }
 
     pub fn add_scroll(&mut self, delta: f64) {
-        self.buffer.push(format!("scroll:{}:{}", js_sys::Date::now(), delta));
+        self.buffer.push(format!("scroll:{}:{}", crate::now_ms(), delta));
         self.trim();
     }
 
@@ -38,16 +33,16 @@ impl EntropyPool {
         }
     }
 
-    /// Returns JSON: {"seed": "hex...", "ready": bool}
-    pub fn derive_seed(&self) -> String {
+    /// Returns (seed_hex, is_ready)
+    pub fn derive_seed(&self) -> (String, bool) {
         if self.buffer.len() < 10 {
-            return r#"{"seed":"","ready":false}"#.to_string();
+            return (String::new(), false);
         }
         let mut data = Vec::new();
         for e in &self.buffer { data.extend_from_slice(e.as_bytes()); }
         let seed = hex::encode(Sha256::digest(&data));
         let ready = self.buffer.len() >= 64;
-        serde_json::json!({"seed": seed, "ready": ready}).to_string()
+        (seed, ready)
     }
 
     pub fn count(&self) -> usize { self.buffer.len() }

@@ -2,35 +2,41 @@
 name = "tap2mine-node"
 version = "0.1.0-alpha"
 edition = "2021"
-description = "Decentralized blocklattice node — tap-to-mine, compiled to WebAssembly"
+description = "Decentralized blocklattice node — tap-to-mine"
 license = "MIT"
-repository = "https://github.com/br3avery-maker/Backbone-tap2mine"
 
 [lib]
+name = "tap2mine_node"
+path = "src/lib.rs"
 crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "tap2mine"
+path = "src/main.rs"
+required-features = ["native"]
 
 [dependencies]
 wasm-bindgen = "0.2"
-wasm-bindgen-futures = "0.4"
-serde = { version = "1.0", features = ["derive"] }
-serde-wasm-bindgen = "0.6"
-serde_json = "1.0"
 getrandom = { version = "0.2", features = ["js"] }
 sha2 = "0.10"
 ed25519-dalek = { version = "2.1", features = ["rand_core"] }
 hex = "0.4"
 uuid = { version = "1.7", features = ["v4", "serde", "js"] }
-chrono = { version = "0.4", features = ["serde"] }
-web-sys = { version = "0.3", features = [
-    "Window",
-    "Storage",
-    "console",
-] }
-gloo-timers = { version = "0.3", features = ["futures"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 js-sys = "0.3"
+web-sys = { version = "0.3", features = ["console"] }
 
-[dev-dependencies]
-wasm-bindgen-test = "0.3"
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { version = "1", features = ["full"] }
+axum = "0.7"
+dirs = "5.0"
+clap = { version = "4.5", features = ["derive"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+[features]
+native = []
 
 [profile.release]
 opt-level = "s"

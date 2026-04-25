@@ -1,18 +1,14 @@
-use wasm_bindgen::prelude::*;
 use ed25519_dalek::{SigningKey, SecretKey};
 use ed25519_dalek::Signer;
 use uuid::Uuid;
 
-#[wasm_bindgen]
 pub struct Keystore {
     node_id: String,
     public_key_hex: String,
     signing_key: SigningKey,
 }
 
-#[wasm_bindgen]
 impl Keystore {
-    #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         let mut seed = [0u8; 32];
         getrandom::getrandom(&mut seed).expect("Failed to get random bytes");
@@ -40,8 +36,8 @@ impl Keystore {
         false
     }
 
-    pub fn node_id(&self) -> String { self.node_id.clone() }
-    pub fn public_key(&self) -> String { self.public_key_hex.clone() }
+    pub fn node_id(&self) -> &str { &self.node_id }
+    pub fn public_key(&self) -> &str { &self.public_key_hex }
 
     pub fn to_json(&self) -> String {
         serde_json::json!({
@@ -51,14 +47,18 @@ impl Keystore {
         }).to_string()
     }
 
-    pub fn from_json(json: &str) -> Result<Keystore, JsError> {
+    pub fn from_json(json: &str) -> Result<Keystore, String> {
         let v: serde_json::Value = serde_json::from_str(json)
-            .map_err(|e| JsError::new(&format!("Invalid keystore: {}", e)))?;
-        let node_id = v["node_id"].as_str().ok_or_else(|| JsError::new("Missing node_id"))?.to_string();
-        let public_key = v["public_key"].as_str().ok_or_else(|| JsError::new("Missing public_key"))?.to_string();
-        let secret_hex = v["secret_key"].as_str().ok_or_else(|| JsError::new("Missing secret_key"))?;
-        let bytes = hex::decode(secret_hex).map_err(|e| JsError::new(&format!("Bad secret key: {}", e)))?;
-        let sk: SecretKey = bytes.try_into().map_err(|_| JsError::new("Secret key must be 32 bytes"))?;
-        Ok(Keystore { node_id, public_key_hex: public_key, signing_key: SigningKey::from_bytes(&sk) })
+            .map_err(|e| format!("Invalid keystore: {}", e))?;
+        let node_id = v["node_id"].as_str().ok_or("Missing node_id")?.to_string();
+        let public_key = v["public_key"].as_str().ok_or("Missing public_key")?.to_string();
+        let secret_hex = v["secret_key"].as_str().ok_or("Missing secret_key")?;
+        let bytes = hex::decode(secret_hex).map_err(|e| format!("Bad secret: {}", e))?;
+        let sk: SecretKey = bytes.try_into().map_err(|_| "Secret must be 32 bytes")?;
+        Ok(Keystore {
+            node_id,
+            public_key_hex: public_key,
+            signing_key: SigningKey::from_bytes(&sk),
+        })
     }
 }
