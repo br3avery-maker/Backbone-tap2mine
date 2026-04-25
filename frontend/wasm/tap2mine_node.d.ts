@@ -16,6 +16,7 @@ export class WasmNode {
     add_scroll(delta: number): void;
     add_tap(x: number, y: number): void;
     chain_len(): number;
+    chao_address(): string;
     /**
      * Create a SEND block to send value to another node.
      * Returns the block JSON or an error message.
@@ -86,6 +87,7 @@ export interface InitOutput {
     readonly wasmnode_add_scroll: (a: number, b: number) => void;
     readonly wasmnode_add_tap: (a: number, b: number, c: number) => void;
     readonly wasmnode_chain_len: (a: number) => number;
+    readonly wasmnode_chao_address: (a: number) => [number, number];
     readonly wasmnode_create_send: (a: number, b: number, c: number, d: number, e: number, f: bigint) => [number, number];
     readonly wasmnode_entropy_count: (a: number) => number;
     readonly wasmnode_export_chain: (a: number) => [number, number];

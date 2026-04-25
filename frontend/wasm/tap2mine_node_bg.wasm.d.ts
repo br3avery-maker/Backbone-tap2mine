@@ -14,6 +14,7 @@ export const wasmnode_add_peer: (a: number, b: number, c: number, d: number, e: 
 export const wasmnode_add_scroll: (a: number, b: number) => void;
 export const wasmnode_add_tap: (a: number, b: number, c: number) => void;
 export const wasmnode_chain_len: (a: number) => number;
+export const wasmnode_chao_address: (a: number) => [number, number];
 export const wasmnode_create_send: (a: number, b: number, c: number, d: number, e: number, f: bigint) => [number, number];
 export const wasmnode_entropy_count: (a: number) => number;
 export const wasmnode_export_chain: (a: number) => [number, number];

@@ -68,7 +68,8 @@ function renderNodeInfo() {
   document.getElementById('pub-key')!.textContent = truncate(info.public_key, 20);
   document.getElementById('chain-len')!.textContent = `${info.chain_len} blocks`;
   document.getElementById('latest-hash')!.textContent = truncate(info.latest_hash, 16);
-  document.getElementById('balance')!.textContent = `${info.balance} ⛏`;
+  document.getElementById('balance')!.textContent = `${info.balance_chao} $CHAO`;
+  document.getElementById('chao-address')!.textContent = info.chao_address || '—';
   document.getElementById('peers-count')!.textContent = `${info.peers} connected`;
 }
 
@@ -211,7 +212,7 @@ function handleHandshakeLink() {
 function showSendModal() {
   if (!node) return;
   document.getElementById('send-modal')!.classList.add('active');
-  document.getElementById('max-send')!.textContent = `Max: ${node.get_balance()} ⛏`;
+  document.getElementById('max-send')!.textContent = `Max: ${node.get_balance()} $CHAO`;
 }
 
 function closeSendModal() {
@@ -239,7 +240,7 @@ function handleSend() {
   renderNodeInfo();
   saveNode();
   closeSendModal();
-  alert(`Sent ${amount} ⛏ to ${truncate(toNodeId, 16)}. Waiting for confirmation...`);
+  alert(`Sent ${amount} $CHAO to ${truncate(toNodeId, 16)}. Waiting for confirmation...`);
 }
 
 // --- Init ---

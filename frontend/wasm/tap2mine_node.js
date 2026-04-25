@@ -72,6 +72,21 @@ export class WasmNode {
         return ret >>> 0;
     }
     /**
+     * @returns {string}
+     */
+    chao_address() {
+        let deferred1_0;
+        let deferred1_1;
+        try {
+            const ret = wasm.wasmnode_chao_address(this.__wbg_ptr);
+            deferred1_0 = ret[0];
+            deferred1_1 = ret[1];
+            return getStringFromWasm0(ret[0], ret[1]);
+        } finally {
+            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+        }
+    }
+    /**
      * Create a SEND block to send value to another node.
      * Returns the block JSON or an error message.
      * @param {string} to_node_id

@@ -37,6 +37,7 @@ impl WasmNode {
     pub fn get_peers(&self) -> String { self.inner.get_peers_json() }
     pub fn node_id(&self) -> String { self.inner.node_id().to_string() }
     pub fn public_key(&self) -> String { self.inner.public_key().to_string() }
+    pub fn chao_address(&self) -> String { self.inner.chao_address() }
 
     pub fn add_tap(&mut self, x: f64, y: f64) { self.inner.add_tap(x, y); }
     pub fn add_move(&mut self, x: f64, y: f64) { self.inner.add_move(x, y); }

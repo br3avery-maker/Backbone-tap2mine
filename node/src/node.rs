@@ -67,10 +67,11 @@ impl Node {
         serde_json::json!({
             "node_id": self.keystore.node_id(),
             "public_key": self.keystore.public_key(),
+            "chao_address": self.chao_address(),
             "chain_len": self.chain.len(),
             "genesis_hash": self.chain.first().map(|b| b.hash.clone()).unwrap_or_default(),
             "latest_hash": self.chain.last().map(|b| b.hash.clone()).unwrap_or_default(),
-            "balance": self.get_balance(),
+            "balance_chao": self.get_balance(),
             "peers": self.peers.len(),
         }).to_string()
     }
@@ -251,4 +252,9 @@ impl Node {
     pub fn chain(&self) -> &[Block] { &self.chain }
     pub fn node_id(&self) -> &str { self.keystore.node_id() }
     pub fn public_key(&self) -> &str { self.keystore.public_key() }
+
+    /// Generate a CHAO address: chao_ + first 16 chars of public key
+    pub fn chao_address(&self) -> String {
+        format!("chao_{}", &self.keystore.public_key()[..16.min(self.keystore.public_key().len())])
+    }
 }
