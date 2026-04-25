@@ -167,13 +167,13 @@ Hand the JSON-RPC contract to an LLM to generate polished UI components (React w
 
 ## Milestones
 
-| # | Milestone | Done when... |
-|---|-----------|-------------|
-| M1 | Node Init | `go run main.go init` generates keys + genesis block |
-| M2 | Tap Engine | User taps → entropy → new blocks appear in local DB |
-| M3 | API Server | `go run main.go serve` starts localhost JSON-RPC |
-| M3.5 | Agent Skill | MCP server + agent skill package, LLM can control node |
-| M4 | P2P Sync | Two nodes on same machine sync blocks over WebRTC |
-| M5 | Frontend | Static site connects to local node, shows chain + tap activity |
-| M6 | IPFS Ready | `npm run build` produces static output, published to IPFS |
-| M7 | Binary Release | `go build` produces distributable binary for Linux/macOS/Windows |
+| # | Milestone | Status | Done when... |
+|---|-----------|--------|-------------|
+| M1 | Node Init | ✅ | `tap2mine init` generates keys + genesis block |
+| M2 | Tap Engine | ✅ | Tap entropy → block production in local DB |
+| M3 | API Server | ✅ | `tap2mine serve` starts localhost JSON-RPC |
+| M3.5 | Agent Skill | ✅ | MCP server + OpenClaw skill, LLM can control node |
+| M4 | P2P Sync | ⏳ | Two nodes sync blocks over WebRTC |
+| M5 | Frontend | ⏳ | Static site connects to local node, shows chain + tap |
+| M6 | IPFS Ready | ⏳ | `npm run build` produces deployable static output |
+| M7 | Binary Release | ⏳ | Cross-platform binaries (Linux/macOS/Windows) |
