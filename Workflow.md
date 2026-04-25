@@ -3,9 +3,10 @@
 ## Architecture
 
 - **Blocklattice** — every user runs their own node with their own chain. No central authority, no shared ledger, no server.
-- **Browser-native** — the node is compiled to WebAssembly and runs entirely in the browser. No install, no CLI, no local server.
+- **Dual-target Rust** — same core code compiles to both WebAssembly (browser UI) and native binary (persistent node).
+- **Static site on IPFS** — the Wasm-powered frontend is a static site: HTML/CSS/JS + `.wasm` file, deployable to IPFS, GitHub Pages, any CDN.
+- **Native node** — a CLI binary that stores keys and blockchain on the user's filesystem. Fully owned by the user. Exposes localhost JSON-RPC API that the Wasm frontend can talk to.
 - **P2P gossip** — nodes communicate directly (WebRTC), no bootstrap or relay server
-- **Static site on IPFS** — a single `.wasm` file + static HTML/CSS/JS, deployable to IPFS, GitHub Pages, any CDN
 
 ---
 
@@ -13,27 +14,26 @@
 
 | Layer | Choice |
 |-------|--------|
-| Node runtime | Rust → WebAssembly (wasm32-unknown-unknown) |
+| Core | Rust — shared between all targets |
+| Wasm target | wasm32-unknown-unknown → `.wasm` for browser |
+| Native target | x86_64/aarch64 → CLI binary with filesystem + HTTP |
 | Crypto | Ed25519 (ed25519-dalek), SHA-256 (sha2) |
-| Local storage | IndexedDB via web-sys |
-| P2P | WebRTC DataChannels (via web-sys) |
-| API | Direct JS ↔ Wasm function calls (no HTTP needed) |
-| Agent Interface | MCP server via `wasm-bindgen` exports |
-| Frontend | Vite + TypeScript + vanilla JS/React |
-| Build | `cargo build --target wasm32-unknown-unknown` |
-| Deploy | Static build → IPFS |
+| Wasm storage | IndexedDB via web-sys |
+| Native storage | Filesystem (`~/.tap2mine/`) |
+| P2P | WebRTC DataChannels (via web-sys for Wasm, native for binary) |
+| Wasm API | Direct JS ↔ Wasm function calls |
+| Native API | JSON-RPC over HTTP (localhost only) |
 
 ---
 
 ## Phase 1: Identity & Genesis
 
 ### Step 1: Key Generation
-On first load, the Wasm node generates:
+On first load/run, the node generates:
 - Ed25519 keypair (public key = node identity, private key = signing authority)
 - UUID node identifier
-- Keystore persisted to IndexedDB
-
-**Artifacts:** `Keystore` (Wasm struct), stored in IndexedDB
+- **Wasm:** Keystore persisted to IndexedDB
+- **Native:** Keystore saved to `~/.tap2mine/keystore.json`
 
 ### Step 2: Genesis Block
 Create the root of the user's personal blocklattice chain:
@@ -48,111 +48,88 @@ Create the root of the user's personal blocklattice chain:
 }
 ```
 
-**Artifact:** Genesis block appended to in-memory chain, synced to IndexedDB
-
 ---
 
 ## Phase 2: Tap-to-Mine (Entropy Engine)
 
 ### Step 3: Touch/Event Capture
-User interactions (tap, click, mouse move, scroll) feed directly into the Wasm entropy pool:
-- Coordinates, timestamps passed via `wasm-bindgen` function calls
+User interactions (tap, click, mouse move, scroll) feed directly into the entropy pool:
+- Coordinates, timestamps collected
 - Buffer size: ~1024 events (FIFO)
 - Derive `block_seed` via SHA-256 of accumulated entropy
 
-**Artifact:** `EntropyPool` (Wasm struct)
-
 ### Step 4: Block Production
-When entropy threshold is reached (≥64 events):
+When entropy threshold is reached (>= 64 events):
 - Build block: `{ prev_hash, sequence, signature, timestamp, tx_set, seed }`
-- Sign with Ed25519 private key (inside Wasm)
-- Append to blocklattice chain in memory → sync to IndexedDB
+- Sign with Ed25519 private key
+- Append to blocklattice chain
 - Increment sequence
-
-**Artifact:** New block persisted in IndexedDB
 
 ---
 
-## Phase 3: Wasm API (Direct JS ↔ Rust)
+## Phase 3: Dual-Target API
 
-### Step 5: Wasm Export Functions
-The compiled `.wasm` module exports these functions directly to JavaScript:
+### Step 5: Wasm API (Browser)
+The compiled `.wasm` module exports directly to JavaScript:
 - `create_node()` — generate keys + genesis block
 - `load_node(keystore_json, chain_json)` — restore from IndexedDB
 - `node.info()` → JSON — node status, chain length
 - `node.get_chain(start, limit)` → JSON — read blocks
 - `node.add_tap(x, y)` — feed entropy from UI events
-- `node.try_mine()` → JSON — produce block if entropy ready (or empty string)
+- `node.try_mine()` → JSON — produce block if entropy ready
 - `node.get_entropy()` → JSON — current seed status
 - `node.export_keystore()` → JSON — backup
 - `node.verify_block(block_json)` → bool — validate signature
 
-No HTTP, no JSON-RPC server. Direct function calls between JS and Wasm.
+### Step 6: Native CLI (Filesystem)
+```bash
+tap2mine init              # Generate keys + genesis, save to disk
+tap2mine serve --port 8765 # Start JSON-RPC API on localhost
+tap2mine info              # Show node status
+tap2mine tap               # Tap-to-mine mode (Enter to simulate)
+tap2mine reset             # Delete all node data
+```
 
-**Artifact:** `node/src/api/` — Node struct with wasm-bindgen exports
+The native binary stores data in `~/.tap2mine/`:
+- `keystore.json` — Ed25519 keypair + node ID
+- `chain.json` — full blocklattice chain
 
 ---
 
 ## Phase 4: P2P Gossip & Sync
 
-### Step 6: Peer Discovery
-- WebRTC DataChannels via web-sys bindings
+### Step 7: Peer Discovery
+- WebRTC DataChannels for direct peer-to-peer connections
 - STUN: public STUN servers for NAT traversal
-- Signaling: out-of-band (QR code, link share, manual SDP exchange)
+- No central signaling server — peers exchange offers out-of-band
 
-### Step 7: Block Gossip
+### Step 8: Block Gossip & Validation
 - Broadcast new blocks to connected peers
-- Receive blocks, validate (Ed25519 signature + prev_hash chain + sequence), merge
+- Receive blocks, validate (Ed25519 signature + prev_hash chain + sequence)
 - Maintain healing log of all observed blocks for reverse sync
-
-### Step 8: Validation
-Each incoming block is validated inside Wasm:
-- Signature verified against claimed public key
-- `prev_hash` chains correctly
-- Sequence is monotonically increasing
-- No double-spends
-- Invalid blocks rejected
-
-**Artifacts:** `node/src/p2p/` — WebRTC engine, validation logic
 
 ---
 
 ## Phase 4.5: Agent Skill & LLM API
 
-### Step 8.5: MCP Server
-Expose the node's functions as **MCP (Model Context Protocol)** tools:
+### Step 9: MCP Server
+Expose the node's functions as **MCP (Model Context Protocol)** tools for LLM agents:
 - `get_node_info` — node status, chain length
 - `get_chain` — read blocks with pagination
 - `get_balance` — current balance (placeholder)
 - `get_peers` — connected peers (placeholder)
 - `get_entropy_seed` — current tap-derived seed
-- `export_keystore` — encrypted backup
-- `import_keystore` — restore from backup
+- `export_keystore` — backup
+- `import_keystore` — restore
 
-The MCP server runs as a separate Go binary that talks to the Wasm node via stdio, or as a standalone wrapper.
-
-**Artifact:** `node/src/mcp/` — MCP tool definitions
-
-### Step 8.6: OpenClaw / Agent Skill
-Package as an agent skill for the LLM hackathon:
-- SKILL.md declares available tools
-- LLM agents call node operations through the Wasm API or MCP transport
-- Skill config: `~/.openclaw/skills/tap2mine/SKILL.md`
-
-**Artifact:** `node/skill/` — agent skill package
-
-### Step 8.7: API Contract (Machine-Readable)
-Publish the Wasm function signatures as an **OpenAPI spec**:
-- Auto-generates client libraries in any language
-- Served alongside the static site
-
-**Artifact:** `docs/api-schema.json` — OpenAPI 3.1 spec
+### Step 10: OpenClaw / Agent Skill
+Package as an agent skill for the LLM hackathon.
 
 ---
 
 ## Phase 5: Frontend (Static Site)
 
-### Step 9: Web Dashboard
+### Step 11: Web Dashboard
 The static web app loads the `.wasm` module and provides:
 - **Chain explorer** — visualize your blocklattice
 - **Tap-to-mine visualizer** — show entropy accumulation in real-time
@@ -165,18 +142,23 @@ All interactions are direct JS → Wasm function calls. No HTTP server needed.
 
 Built with Vite + TypeScript, output is pure static files → deployable to IPFS.
 
-### Step 10: UI Generation
-Hand the Wasm API contract to an LLM to generate polished UI components (React widgets, dashboard layouts, animations). The API is the source of truth.
-
 ---
 
 ## Build
 
 ```bash
+# Wasm module (for browser)
 cd node
 cargo build --target wasm32-unknown-unknown --release
-# Output: target/wasm32-unknown-unknown/release/tap2mine_node.wasm
-# Size: ~600KB (optimized with wasm-opt)
+# Output: target/wasm32-unknown-unknown/release/tap2mine_node.wasm (~300KB)
+
+# Generate JS bindings
+wasm-bindgen target/wasm32-unknown-unknown/release/tap2mine_node.wasm \
+  --out-dir ../frontend/wasm --target web
+
+# Native binary (for persistent node)
+cargo build --features native --release
+# Output: target/release/tap2mine
 ```
 
 ---
@@ -185,11 +167,12 @@ cargo build --target wasm32-unknown-unknown --release
 
 | # | Milestone | Status | Done when... |
 |---|-----------|--------|-------------|
-| M1 | Node Init | ✅ | Wasm `create_node()` generates keys + genesis |
+| M1 | Node Init | ✅ | Wasm + native both generate keys + genesis |
 | M2 | Tap Engine | ✅ | `add_tap()` → entropy → `try_mine()` produces blocks |
-| M3 | Wasm API | ✅ | All functions exported via wasm-bindgen, JS ↔ Wasm working |
+| M3 | Wasm API | ✅ | All functions exported via wasm-bindgen |
+| M3.1 | Native Binary | ✅ | `tap2mine init/serve/info/tap` CLI with filesystem |
 | M3.5 | Agent Skill | ⏳ | MCP tool definitions + OpenClaw skill |
-| M4 | P2P Sync | ⏳ | Two browser tabs sync blocks over WebRTC |
-| M5 | IndexedDB | ⏳ | Chain + keystore persisted to IndexedDB |
-| M6 | Frontend | ⏳ | Static site loads Wasm, shows chain + tap activity |
+| M4 | P2P Sync | ⏳ | Two nodes sync blocks over WebRTC |
+| M5 | Storage | ✅ | Wasm→IndexedDB, Native→filesystem |
+| M6 | Frontend | ✅ | Static site loads Wasm, shows chain + tap |
 | M7 | IPFS Ready | ⏳ | `npm run build` produces deployable static output |
