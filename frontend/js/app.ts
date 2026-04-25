@@ -246,10 +246,18 @@ async function handleCreateOffer() {
   if (!node || !peerManager) return;
 
   const offer = await peerManager.createOffer(node.node_id());
-  document.getElementById('offer-text')!.textContent = offer;
+
+  // Generate a shareable link with the offer embedded
+  const baseUrl = window.location.origin + window.location.pathname;
+  const offerUrl = new URL(baseUrl);
+  offerUrl.searchParams.set('offer', offer);
+  offerUrl.searchParams.set('node_id', node.node_id());
+  offerUrl.searchParams.set('pk', node.public_key());
+
+  document.getElementById('offer-text')!.textContent = offerUrl.toString();
   document.getElementById('copy-offer')!.onclick = () => {
-    navigator.clipboard.writeText(offer);
-    alert('Offer copied to clipboard!');
+    navigator.clipboard.writeText(offerUrl.toString());
+    alert('Connection link copied! Share it with your peer.');
   };
   showConnectStep(2);
 }
@@ -257,17 +265,40 @@ async function handleCreateOffer() {
 async function handleAcceptOffer() {
   if (!node || !peerManager) return;
 
-  const offerText = (document.getElementById('answer-offer-input') as HTMLTextAreaElement).value.trim();
-  if (!offerText) { alert('Paste the offer text'); return; }
+  // The input might be a full URL or just the raw offer
+  let offerText = (document.getElementById('answer-offer-input') as HTMLTextAreaElement).value.trim();
+  if (!offerText) { alert('Paste the connection link'); return; }
+
+  // If it's a URL, extract the offer parameter
+  try {
+    const url = new URL(offerText);
+    const offerParam = url.searchParams.get('offer');
+    if (offerParam) offerText = offerParam;
+  } catch { /* Not a URL, use as-is */ }
 
   try {
     const answer = await peerManager.acceptOffer(offerText, node.node_id());
-    document.getElementById('answer-text')!.textContent = answer;
-    document.getElementById('copy-answer')!.onclick = () => {
-      navigator.clipboard.writeText(answer);
-      alert('Answer copied! Send it back to the peer.');
-    };
-    showConnectStep(3);
+
+    // Generate a response link
+    const baseUrl = window.location.origin + window.location.pathname;
+    const responseUrl = new URL(baseUrl);
+    responseUrl.searchParams.set('answer', answer);
+    responseUrl.searchParams.set('node_id', node.node_id());
+    responseUrl.searchParams.set('pk', node.public_key());
+
+    const step2b = document.getElementById('connect-step-2b')!;
+    step2b.innerHTML = `
+      <h3>✅ Response Link Generated!</h3>
+      <p class="hint">Share this link back to complete the connection:</p>
+      <textarea id="response-link" readonly>${responseUrl.toString()}</textarea>
+      <button class="btn" id="copy-response-link">📋 Copy Link</button>
+      <p class="hint">Once they open it, you'll be connected!</p>
+    `;
+
+    document.getElementById('copy-response-link')!.addEventListener('click', () => {
+      navigator.clipboard.writeText(responseUrl.toString());
+      alert('Response link copied!');
+    });
   } catch (e) {
     alert('Invalid offer: ' + (e instanceof Error ? e.message : e));
   }
@@ -276,16 +307,24 @@ async function handleAcceptOffer() {
 async function handleAcceptAnswer() {
   if (!peerManager) return;
 
-  const answerText = (document.getElementById('offer-answer-input') as HTMLTextAreaElement).value.trim();
-  if (!answerText) { alert('Paste the answer text'); return; }
+  // The input might be a full URL or just the raw answer
+  let input = (document.getElementById('offer-answer-input') as HTMLTextAreaElement).value.trim();
+  if (!input) { alert('Paste the response link'); return; }
+
+  // If it's a URL, extract the answer parameter
+  try {
+    const url = new URL(input);
+    const answerParam = url.searchParams.get('answer');
+    if (answerParam) input = answerParam;
+  } catch { /* Not a URL, use as-is */ }
 
   try {
-    await peerManager.acceptAnswer(answerText);
-    showConnectStep(4);
+    await peerManager.acceptAnswer(input);
+    showConnectStep(3);
     renderPeers();
     renderNodeInfo();
   } catch (e) {
-    alert('Invalid answer: ' + (e instanceof Error ? e.message : e));
+    alert('Invalid response: ' + (e instanceof Error ? e.message : e));
   }
 }
 
@@ -391,9 +430,22 @@ document.getElementById('load-node')!.addEventListener('change', e => { const f 
 document.getElementById('show-connect')!.addEventListener('click', showConnectModal);
 document.getElementById('close-connect')!.addEventListener('click', closeConnectModal);
 document.getElementById('create-offer-btn')!.addEventListener('click', handleCreateOffer);
-document.getElementById('accept-offer-btn')!.addEventListener('click', handleAcceptOffer);
+document.getElementById('switch-to-accept')!.addEventListener('click', () => {
+  showConnectModal();
+  // Clear the dynamic step 2b content and restore the accept form
+  document.getElementById('connect-step-2b')!.innerHTML = `
+    <h3>Paste Their Connection Link</h3>
+    <p class="hint">Paste the link your peer sent you to accept the connection.</p>
+    <textarea id="answer-offer-input" placeholder="Paste the connection link"></textarea>
+    <button class="btn" id="accept-offer-btn">🔗 Generate Response Link</button>
+  `;
+  document.getElementById('accept-offer-btn')!.addEventListener('click', handleAcceptOffer);
+  showConnectStep(2);
+  // Show 2b instead of 2
+  document.getElementById('connect-step-2')!.style.display = 'none';
+  document.getElementById('connect-step-2b')!.style.display = 'block';
+});
 document.getElementById('accept-answer-btn')!.addEventListener('click', handleAcceptAnswer);
-document.getElementById('close-connect-final')!.addEventListener('click', closeConnectModal);
 
 // Mode switch in connect modal
 document.getElementById('connect-mode')!.addEventListener('change', e => {
@@ -409,15 +461,91 @@ document.getElementById('show-send')!.addEventListener('click', showSendModal);
 document.getElementById('close-send')!.addEventListener('click', closeSendModal);
 document.getElementById('confirm-send')!.addEventListener('click', handleSend);
 
-// Auto-detect handshake links in URL
-const urlParams = new URLSearchParams(window.location.search);
-if (urlParams.has('pk') && urlParams.has('id')) {
-  setTimeout(() => {
-    showConnectModal();
-    showConnectStep(2);
-    (document.getElementById('connect-mode') as HTMLSelectElement).value = 'answer';
-    showConnectStep(2);
-  }, 2000);
+// --- URL-based connection flow ---
+// Supports two URL formats:
+// 1. Offer link: ?offer=<base64>&node_id=xxx&pk=xxx
+//    → Receiver opens this → browser generates answer → shows them a response link to share back
+// 2. Response link: ?answer=<base64>&node_id=xxx&pk=xxx
+//    → Originator opens this → connection completes automatically
+async function handleUrlConnection() {
+  const params = new URLSearchParams(window.location.search);
+
+  // Case 1: Someone sent you an offer link
+  if (params.has('offer')) {
+    const offer = params.get('offer')!;
+    const remoteNodeId = params.get('node_id') || 'unknown';
+    const remotePk = params.get('pk') || '';
+
+    if (!node || !peerManager) return;
+
+    try {
+      const answer = await peerManager.acceptOffer(offer, node.node_id());
+
+      // Generate a response link the user can share back
+      const responseUrl = new URL(window.location.href);
+      responseUrl.search = '';
+      responseUrl.searchParams.set('answer', answer);
+      responseUrl.searchParams.set('node_id', node.node_id());
+      responseUrl.searchParams.set('pk', node.public_key());
+
+      showConnectModal();
+      document.getElementById('connect-mode')!.value = 'answer';
+
+      // Show the response link
+      const step2b = document.getElementById('connect-step-2b')!;
+      step2b.innerHTML = `
+        <h3>✅ Offer Accepted!</h3>
+        <p>Peer <strong>${truncate(remoteNodeId, 20)}</strong> wants to connect.</p>
+        <p class="hint">Share this link back to complete the connection:</p>
+        <textarea id="response-link" readonly>${responseUrl.toString()}</textarea>
+        <button class="btn" id="copy-response-link">📋 Copy Link</button>
+      `;
+
+      document.getElementById('copy-response-link')!.addEventListener('click', () => {
+        navigator.clipboard.writeText(responseUrl.toString());
+        alert('Response link copied! Send it back to complete the connection.');
+      });
+
+      // Also add them as a peer
+      node.add_peer(remoteNodeId, remotePk);
+      renderAll();
+      saveNode();
+    } catch (e) {
+      alert('Invalid offer link: ' + (e instanceof Error ? e.message : e));
+    }
+    return;
+  }
+
+  // Case 2: They sent back the answer — complete the connection
+  if (params.has('answer')) {
+    const answer = params.get('answer')!;
+    if (!peerManager) return;
+
+    try {
+      await peerManager.acceptAnswer(answer);
+      renderAll();
+      saveNode();
+
+      showConnectModal();
+      document.getElementById('connect-step-4')!.style.display = 'block';
+      document.getElementById('connect-step')!.textContent = '3';
+    } catch (e) {
+      alert('Invalid response link: ' + (e instanceof Error ? e.message : e));
+    }
+    return;
+  }
+
+  // Case 3: Simple peer info link (no SDP) — just adds peer info
+  if (params.has('pk') && params.has('id')) {
+    setTimeout(() => {
+      showConnectModal();
+      showConnectStep(2);
+      (document.getElementById('connect-mode') as HTMLSelectElement).value = 'answer';
+      showConnectStep(2);
+    }, 2000);
+  }
 }
 
-main();
+main().then(() => {
+  handleUrlConnection();
+});

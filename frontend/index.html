@@ -92,46 +92,33 @@
 
       <div class="step-indicator">Step <span id="connect-step">1</span> of 3</div>
 
-      <!-- Step 1: Create Offer -->
+      <!-- Step 1: Create Offer OR Accept Offer -->
       <div class="connect-step" id="connect-step-1">
-        <p>Click below to generate a connection offer. Share the resulting text with your peer.</p>
-        <button class="btn" id="create-offer-btn">🔑 Generate Offer</button>
+        <p>Share a link with your peer to connect. They open it, accept, and send you a response link back.</p>
+        <button class="btn" id="create-offer-btn">🔗 Generate Connection Link</button>
+        <div class="divider">or</div>
+        <button class="btn btn-secondary" id="switch-to-accept">📥 Accept a Link</button>
       </div>
 
-      <!-- Step 2: Show Offer OR Accept Offer -->
+      <!-- Step 2a: Show the generated link -->
       <div class="connect-step" id="connect-step-2" style="display:none">
-        <div id="offer-display">
-          <h3>Your Offer</h3>
-          <p class="hint">Copy this text and send it to your peer (DM, email, etc.)</p>
-          <textarea id="offer-text" readonly></textarea>
-          <button class="btn" id="copy-offer">📋 Copy to Clipboard</button>
-          <p class="hint">Waiting for them to send back an answer...</p>
-        </div>
-        <div id="answer-input-section">
-          <h3>Paste Their Answer</h3>
-          <textarea id="offer-answer-input" placeholder="Paste the answer text from your peer"></textarea>
-          <button class="btn" id="accept-answer-btn">✅ Accept Answer & Connect</button>
-        </div>
+        <h3>Your Connection Link</h3>
+        <p class="hint">Share this link with your peer. When they open it, their browser will generate a response link to send back.</p>
+        <textarea id="offer-text" readonly></textarea>
+        <button class="btn" id="copy-offer">📋 Copy Link</button>
+        <div class="divider">Waiting for their response...</div>
+        <h3>Paste Their Response Link</h3>
+        <textarea id="offer-answer-input" placeholder="Paste the response link they sent back"></textarea>
+        <button class="btn" id="accept-answer-btn">✅ Connect</button>
       </div>
 
-      <!-- Step 2b: Accept Offer -->
+      <!-- Step 2b: Accept an incoming offer -->
       <div class="connect-step" id="connect-step-2b" style="display:none">
-        <h3>Paste Their Offer</h3>
-        <textarea id="answer-offer-input" placeholder="Paste the offer text from your peer"></textarea>
-        <button class="btn" id="accept-offer-btn">🔑 Generate Answer</button>
+        <!-- Dynamically replaced when accepting an offer -->
       </div>
 
-      <!-- Step 3: Show Answer -->
+      <!-- Step 3: Connected -->
       <div class="connect-step" id="connect-step-3" style="display:none">
-        <h3>Your Answer</h3>
-        <p class="hint">Copy this text and send it back to the peer who sent you the offer.</p>
-        <textarea id="answer-text" readonly></textarea>
-        <button class="btn" id="copy-answer">📋 Copy to Clipboard</button>
-        <p class="hint">Once they accept your answer, you'll be connected!</p>
-      </div>
-
-      <!-- Step 4: Connected -->
-      <div class="connect-step" id="connect-step-4" style="display:none">
         <div class="success">✅ Connected!</div>
         <p>You can now send and receive $CHAO with this peer.</p>
       </div>
