@@ -84,7 +84,7 @@ wasm-bindgen target/wasm32-unknown-unknown/release/tap2mine_node.wasm \
 - [x] M5: Storage — IndexedDB + .tap2mine file export/import
 - [x] M6: Frontend — Static dashboard loading Wasm
 - [x] M3.5: Agent Skill — MCP server + OpenClaw skill
-- [ ] M4: P2P Sync — WebRTC block gossip
+- [x] M4: P2P Sync — WebRTC block gossip
 - [x] M7: IPFS Ready — Deployable static build
 
 ## License
