@@ -3,10 +3,11 @@
 ## Architecture
 
 - **Blocklattice** — every user runs their own node with their own chain. No central authority, no shared ledger, no server.
-- **Dual-target Rust** — same core code compiles to both WebAssembly (browser UI) and native binary (persistent node).
-- **Static site on IPFS** — the Wasm-powered frontend is a static site: HTML/CSS/JS + `.wasm` file, deployable to IPFS, GitHub Pages, any CDN.
-- **Native node** — a CLI binary that stores keys and blockchain on the user's filesystem. Fully owned by the user. Exposes localhost JSON-RPC API that the Wasm frontend can talk to.
-- **P2P gossip** — nodes communicate directly (WebRTC), no bootstrap or relay server
+- **Pure Wasm** — the entire node runs in the browser via WebAssembly. Zero install, zero backend.
+- **Anonymous by default** — each chain exists in isolation until the user chooses to share it.
+- **Static site on IPFS** — HTML/CSS/JS + `.wasm` file, deployable to IPFS, GitHub Pages, any CDN.
+- **File ownership** — users save their node as a `.tap2mine` file. Load it anywhere, anytime.
+- **P2P gossip** — nodes communicate directly (WebRTC), no bootstrap or relay server (coming soon)
 
 ---
 
@@ -14,26 +15,24 @@
 
 | Layer | Choice |
 |-------|--------|
-| Core | Rust — shared between all targets |
-| Wasm target | wasm32-unknown-unknown → `.wasm` for browser |
-| Native target | x86_64/aarch64 → CLI binary with filesystem + HTTP |
+| Node | Rust → WebAssembly (wasm32-unknown-unknown) |
 | Crypto | Ed25519 (ed25519-dalek), SHA-256 (sha2) |
-| Wasm storage | IndexedDB via web-sys |
-| Native storage | Filesystem (`~/.tap2mine/`) |
-| P2P | WebRTC DataChannels (via web-sys for Wasm, native for binary) |
-| Wasm API | Direct JS ↔ Wasm function calls |
-| Native API | JSON-RPC over HTTP (localhost only) |
+| Storage | IndexedDB (automatic) + `.tap2mine` files (manual backup) |
+| P2P | WebRTC DataChannels (via web-sys) — coming soon |
+| API | Direct JS ↔ Wasm function calls |
+| Frontend | Vite + TypeScript + vanilla JS |
+| Deploy | Static build → IPFS |
 
 ---
 
 ## Phase 1: Identity & Genesis
 
 ### Step 1: Key Generation
-On first load/run, the node generates:
+On first load, the Wasm node generates:
 - Ed25519 keypair (public key = node identity, private key = signing authority)
 - UUID node identifier
-- **Wasm:** Keystore persisted to IndexedDB
-- **Native:** Keystore saved to `~/.tap2mine/keystore.json`
+- Auto-saved to IndexedDB
+- **User owns it:** export as `.tap2mine` file at any time
 
 ### Step 2: Genesis Block
 Create the root of the user's personal blocklattice chain:
@@ -59,20 +58,22 @@ User interactions (tap, click, mouse move, scroll) feed directly into the entrop
 - Derive `block_seed` via SHA-256 of accumulated entropy
 
 ### Step 4: Block Production
-When entropy threshold is reached (>= 64 events):
+When entropy threshold is reached (≥ 64 events):
 - Build block: `{ prev_hash, sequence, signature, timestamp, tx_set, seed }`
-- Sign with Ed25519 private key
-- Append to blocklattice chain
+- Sign with Ed25519 private key (inside Wasm)
+- Append to blocklattice chain in memory → sync to IndexedDB
 - Increment sequence
 
 ---
 
-## Phase 3: Dual-Target API
+## Phase 3: Wasm API (Direct JS ↔ Rust)
 
-### Step 5: Wasm API (Browser)
-The compiled `.wasm` module exports directly to JavaScript:
+### Step 5: Wasm Export Functions
+The compiled `.wasm` module exports these functions directly to JavaScript:
 - `create_node()` — generate keys + genesis block
 - `load_node(keystore_json, chain_json)` — restore from IndexedDB
+- `export_node(node)` — serialize full node for `.tap2mine` file
+- `import_node(data_json)` — load node from `.tap2mine` file content
 - `node.info()` → JSON — node status, chain length
 - `node.get_chain(start, limit)` → JSON — read blocks
 - `node.add_tap(x, y)` — feed entropy from UI events
@@ -81,39 +82,36 @@ The compiled `.wasm` module exports directly to JavaScript:
 - `node.export_keystore()` → JSON — backup
 - `node.verify_block(block_json)` → bool — validate signature
 
-### Step 6: Native CLI (Filesystem)
-```bash
-tap2mine init              # Generate keys + genesis, save to disk
-tap2mine serve --port 8765 # Start JSON-RPC API on localhost
-tap2mine info              # Show node status
-tap2mine tap               # Tap-to-mine mode (Enter to simulate)
-tap2mine reset             # Delete all node data
-```
-
-The native binary stores data in `~/.tap2mine/`:
-- `keystore.json` — Ed25519 keypair + node ID
-- `chain.json` — full blocklattice chain
+No HTTP, no JSON-RPC server. Direct function calls between JS and Wasm.
 
 ---
 
 ## Phase 4: P2P Gossip & Sync
 
-### Step 7: Peer Discovery
-- WebRTC DataChannels for direct peer-to-peer connections
+### Step 6: Peer Discovery
+- WebRTC DataChannels via web-sys bindings
 - STUN: public STUN servers for NAT traversal
-- No central signaling server — peers exchange offers out-of-band
+- Signaling: out-of-band (QR code, link share, manual SDP exchange)
 
-### Step 8: Block Gossip & Validation
+### Step 7: Block Gossip
 - Broadcast new blocks to connected peers
-- Receive blocks, validate (Ed25519 signature + prev_hash chain + sequence)
+- Receive blocks, validate (Ed25519 signature + prev_hash chain + sequence), merge
 - Maintain healing log of all observed blocks for reverse sync
+
+### Step 8: Validation
+Each incoming block is validated inside Wasm:
+- Signature verified against claimed public key
+- `prev_hash` chains correctly
+- Sequence is monotonically increasing
+- No double-spends
+- Invalid blocks rejected
 
 ---
 
 ## Phase 4.5: Agent Skill & LLM API
 
 ### Step 9: MCP Server
-Expose the node's functions as **MCP (Model Context Protocol)** tools for LLM agents:
+Expose the node's functions as **MCP (Model Context Protocol)** tools:
 - `get_node_info` — node status, chain length
 - `get_chain` — read blocks with pagination
 - `get_balance` — current balance (placeholder)
@@ -133,9 +131,9 @@ Package as an agent skill for the LLM hackathon.
 The static web app loads the `.wasm` module and provides:
 - **Chain explorer** — visualize your blocklattice
 - **Tap-to-mine visualizer** — show entropy accumulation in real-time
-- **Peer status** — connected peers, sync progress
-- **Transaction sender** — compose and sign transactions
-- **Keystore management** — export/import/backup
+- **Peer status** — connected peers, sync progress (coming)
+- **Transaction sender** — compose and sign transactions (coming)
+- **Node file management** — save/load `.tap2mine` files
 - **Node info** — uptime, block count, chain health
 
 All interactions are direct JS → Wasm function calls. No HTTP server needed.
@@ -144,21 +142,36 @@ Built with Vite + TypeScript, output is pure static files → deployable to IPFS
 
 ---
 
+## File Format: `.tap2mine`
+
+```json
+{
+  "version": 1,
+  "keystore": {
+    "node_id": "uuid",
+    "public_key": "hex...",
+    "secret_key": "hex..."
+  },
+  "chain": [
+    { "sequence": 0, "prev_hash": "", "hash": "...", "timestamp": 0, "signature": "...", "tx_set": [], "seed": "genesis", "node_id": "uuid" }
+  ]
+}
+```
+
+A single file containing the user's complete node identity and chain. Portable, self-contained, fully owned by the user.
+
+---
+
 ## Build
 
 ```bash
-# Wasm module (for browser)
 cd node
 cargo build --target wasm32-unknown-unknown --release
-# Output: target/wasm32-unknown-unknown/release/tap2mine_node.wasm (~300KB)
+# Output: target/wasm32-unknown-unknown/release/tap2mine_node.wasm (~310KB)
 
 # Generate JS bindings
 wasm-bindgen target/wasm32-unknown-unknown/release/tap2mine_node.wasm \
   --out-dir ../frontend/wasm --target web
-
-# Native binary (for persistent node)
-cargo build --features native --release
-# Output: target/release/tap2mine
 ```
 
 ---
@@ -167,12 +180,11 @@ cargo build --features native --release
 
 | # | Milestone | Status | Done when... |
 |---|-----------|--------|-------------|
-| M1 | Node Init | ✅ | Wasm + native both generate keys + genesis |
+| M1 | Node Init | ✅ | Wasm `create_node()` generates keys + genesis |
 | M2 | Tap Engine | ✅ | `add_tap()` → entropy → `try_mine()` produces blocks |
 | M3 | Wasm API | ✅ | All functions exported via wasm-bindgen |
-| M3.1 | Native Binary | ✅ | `tap2mine init/serve/info/tap` CLI with filesystem |
 | M3.5 | Agent Skill | ⏳ | MCP tool definitions + OpenClaw skill |
-| M4 | P2P Sync | ⏳ | Two nodes sync blocks over WebRTC |
-| M5 | Storage | ✅ | Wasm→IndexedDB, Native→filesystem |
-| M6 | Frontend | ✅ | Static site loads Wasm, shows chain + tap |
+| M4 | P2P Sync | ⏳ | Two browser nodes sync blocks over WebRTC |
+| M5 | Storage | ✅ | IndexedDB auto-save + `.tap2mine` file export/import |
+| M6 | Frontend | ✅ | Static site loads Wasm, shows chain + tap activity |
 | M7 | IPFS Ready | ⏳ | `npm run build` produces deployable static output |

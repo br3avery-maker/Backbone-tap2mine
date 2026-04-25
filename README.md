@@ -7,48 +7,42 @@ A decentralized blocklattice network where every user runs their own node with t
 - **Blocklattice** — Each user has a personal chain (like Nano's architecture)
 - **Tap-to-Mine** — User interactions generate entropy that seeds new blocks
 - **P2P** — Nodes gossip blocks directly via WebRTC (coming soon)
-- **Local-first** — All state lives in the browser (IndexedDB)
+- **Anonymous by default** — Each chain exists in isolation until you choose to share
 - **Wasm-native** — Compiled to WebAssembly, runs entirely in the browser
-- **LLM-ready** — MCP server for AI agent integration
+- **Zero install** — Open the IPFS link and start tapping
+- **File ownership** — Save your node as a `.tap2mine` file, load it anywhere
 
 ## Quick Start
 
-### Build the Wasm Module
+### Open the Site
+
+Once deployed to IPFS, just open the link. No install, no config, no account.
+
+### Tap to Mine
+
+- Tap the entropy area to generate entropy
+- When enough entropy accumulates, a new block is mined
+- Each tap adds coordinates + timestamps to the entropy pool
+- Blocks are signed with your Ed25519 key and appended to your chain
+
+### Save Your Node
+
+Click **💾 Save Node File** to download your entire node (keys + chain) as a `.tap2mine` file. Keep this file safe — it's your identity.
+
+### Load Your Node
+
+Click **📂 Load Node File** to import a `.tap2mine` file and restore your node anywhere.
+
+### Build (for development)
 
 ```bash
 cd node
 cargo build --target wasm32-unknown-unknown --release
-# Output: target/wasm32-unknown-unknown/release/tap2mine_node.wasm (~600KB)
-```
+# Output: target/wasm32-unknown-unknown/release/tap2mine_node.wasm
 
-### Use in the Browser
-
-```javascript
-import init, { create_node, load_node } from './tap2mine_node.js';
-
-await init();
-
-// Create a new node (generates keys + genesis block)
-const node = create_node();
-
-// Check node info
-console.log(JSON.parse(node.info()));
-
-// Feed tap entropy
-node.add_tap(event.clientX, event.clientY);
-
-// Try to mine a block (returns block JSON if enough entropy)
-const newBlock = node.try_mine();
-if (newBlock) console.log('New block:', JSON.parse(newBlock));
-```
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev    # Development server
-npm run build  # Static output → IPFS
+# Generate JS bindings
+wasm-bindgen target/wasm32-unknown-unknown/release/tap2mine_node.wasm \
+  --out-dir ../frontend/wasm --target web
 ```
 
 ## Wasm API
@@ -56,7 +50,9 @@ npm run build  # Static output → IPFS
 | Function | Description |
 |----------|-------------|
 | `create_node()` | Create new node with keys + genesis block |
-| `load_node(keystore, chain)` | Restore node from saved data |
+| `load_node(keystore, chain)` | Restore from IndexedDB data |
+| `export_node(node)` | Serialize full node for `.tap2mine` file |
+| `import_node(json)` | Load node from `.tap2mine` file content |
 | `node.info()` | Node status and chain info (JSON) |
 | `node.get_chain(start, limit)` | Read blocks with pagination (JSON array) |
 | `node.add_tap(x, y)` | Feed tap entropy |
@@ -73,8 +69,8 @@ npm run build  # Static output → IPFS
 |-------|-----------|
 | Node | Rust → WebAssembly |
 | Crypto | Ed25519 (ed25519-dalek), SHA-256 |
-| Storage | IndexedDB (browser) |
-| P2P | WebRTC (via web-sys) |
+| Storage | IndexedDB (browser) + `.tap2mine` files |
+| P2P | WebRTC (via web-sys) — coming soon |
 | Frontend | Vite + TypeScript |
 | Deploy | Static → IPFS |
 
@@ -83,10 +79,10 @@ npm run build  # Static output → IPFS
 - [x] M1: Node Init — Key generation + genesis block in Wasm
 - [x] M2: Tap Engine — Entropy collection + block production
 - [x] M3: Wasm API — All functions exported via wasm-bindgen
+- [x] M5: Storage — IndexedDB + .tap2mine file export/import
+- [x] M6: Frontend — Static dashboard loading Wasm
 - [ ] M3.5: Agent Skill — MCP server + OpenClaw skill
 - [ ] M4: P2P Sync — WebRTC block gossip
-- [ ] M5: IndexedDB — Persistent storage
-- [ ] M6: Frontend — Static dashboard loading Wasm
 - [ ] M7: IPFS Ready — Deployable static build
 
 ## License
