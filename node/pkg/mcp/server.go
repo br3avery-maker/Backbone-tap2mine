@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/tap2mine/node/pkg/blocklattice"
-	"github.com/tap2mine/node/pkg/crypto"
-	"github.com/tap2mine/node/pkg/tap"
+	"github.com/br3avery-maker/Backbone-tap2mine/node/pkg/blocklattice"
+	"github.com/br3avery-maker/Backbone-tap2mine/node/pkg/crypto"
+	"github.com/br3avery-maker/Backbone-tap2mine/node/pkg/tap"
 )
 
 // Server implements the Model Context Protocol for LLM agent integration.

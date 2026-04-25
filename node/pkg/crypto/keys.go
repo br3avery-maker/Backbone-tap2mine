@@ -11,7 +11,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/tap2mine/node/pkg/config"
+	"github.com/br3avery-maker/Backbone-tap2mine/node/pkg/config"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/scrypt"
 )

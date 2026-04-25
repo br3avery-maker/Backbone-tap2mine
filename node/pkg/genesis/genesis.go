@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/tap2mine/node/pkg/blocklattice"
-	"github.com/tap2mine/node/pkg/crypto"
+	"github.com/br3avery-maker/Backbone-tap2mine/node/pkg/blocklattice"
+	"github.com/br3avery-maker/Backbone-tap2mine/node/pkg/crypto"
 )
 
 // CreateGenesis builds the genesis block for a new node's blocklattice.

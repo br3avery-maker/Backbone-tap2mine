@@ -1,4 +1,4 @@
-module github.com/tap2mine/node
+module github.com/br3avery-maker/Backbone-tap2mine/node
 
 go 1.25.0
 
