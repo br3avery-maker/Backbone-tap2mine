@@ -76,14 +76,16 @@ wasm-bindgen target/wasm32-unknown-unknown/release/tap2mine_node.wasm \
 
 ## Milestones
 
+### Complete
+
 - [x] M1: Node Init — Key generation + genesis block in Wasm
 - [x] M2: Tap Engine — Entropy collection + block production
 - [x] M3: Wasm API — All functions exported via wasm-bindgen
 - [x] M5: Storage — IndexedDB + .tap2mine file export/import
 - [x] M6: Frontend — Static dashboard loading Wasm
-- [ ] M3.5: Agent Skill — MCP server + OpenClaw skill
+- [x] M3.5: Agent Skill — MCP server + OpenClaw skill
 - [ ] M4: P2P Sync — WebRTC block gossip
-- [ ] M7: IPFS Ready — Deployable static build
+- [x] M7: IPFS Ready — Deployable static build
 
 ## License
 
