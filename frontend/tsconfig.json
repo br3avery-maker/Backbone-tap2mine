@@ -7,7 +7,6 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "outDir": "dist",
-    "rootDir": ".",
     "lib": ["ES2020", "DOM", "DOM.Iterable"]
   },
   "include": ["js/**/*"]

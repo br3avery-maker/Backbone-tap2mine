@@ -9,4 +9,6 @@ export default defineConfig({
   server: {
     port: 3000,
   },
+  // Serve .wasm files as static assets
+  publicDir: 'public',
 });
