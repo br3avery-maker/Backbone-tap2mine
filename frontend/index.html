@@ -20,6 +20,8 @@
           <div><label>Node ID</label><span id="node-id">—</span></div>
           <div><label>Public Key</label><span id="pub-key">—</span></div>
           <div><label>Chain</label><span id="chain-len">—</span></div>
+          <div><label>Balance</label><span id="balance">0 ⛏</span></div>
+          <div><label>Peers</label><span id="peers-count">0 connected</span></div>
           <div><label>Latest</label><span id="latest-hash">—</span></div>
         </div>
       </section>
@@ -29,10 +31,30 @@
         <div class="tap-area" id="tap-area">
           <p>Tap here to mine</p>
           <div class="tap-count" id="tap-count">0 events</div>
+          <div class="mining-progress">
+            <div class="mining-bar" id="mining-progress"></div>
+          </div>
         </div>
         <div class="seed-display">
           <label>Current Seed</label>
           <code id="entropy-seed">—</code>
+        </div>
+      </section>
+
+      <section class="card" id="peers">
+        <h2>🤝 Peers</h2>
+        <div class="peer-actions">
+          <button class="btn btn-secondary" id="show-handshake">📱 Share Handshake Link</button>
+        </div>
+        <div id="peer-list" class="peer-list">
+          <p class="empty">No peers yet</p>
+        </div>
+      </section>
+
+      <section class="card" id="actions">
+        <h2>Actions</h2>
+        <div class="action-buttons">
+          <button class="btn" id="show-send">📤 Send Value</button>
         </div>
       </section>
 
@@ -45,7 +67,7 @@
       </section>
 
       <section class="card" id="wallet">
-        <h2>Wallet</h2>
+        <h2>💾 Backup</h2>
         <div class="wallet-actions">
           <button class="btn btn-secondary" id="save-node">💾 Save Node File</button>
           <label class="btn btn-secondary file-btn">
@@ -59,6 +81,42 @@
     <footer>
       <p>Backbone Tap2Mine — Decentralized blocklattice node in WebAssembly</p>
     </footer>
+  </div>
+
+  <!-- Handshake Modal -->
+  <div class="modal" id="handshake-modal">
+    <div class="modal-content">
+      <h2>🤝 Peer Handshake</h2>
+      <div class="handshake-section">
+        <h3>Your Handshake Link</h3>
+        <p class="link-display" id="handshake-link">Generating...</p>
+        <p class="hint">Share this link or QR code with someone to connect as peers.</p>
+      </div>
+      <div class="handshake-section">
+        <h3>Accept a Handshake</h3>
+        <input type="text" id="handshake-input" placeholder="Paste tap2mine:// link or open a handshake URL">
+        <button class="btn" id="accept-handshake">Accept & Connect</button>
+      </div>
+      <button class="btn btn-secondary close-btn" id="close-handshake">Close</button>
+    </div>
+  </div>
+
+  <!-- Send Modal -->
+  <div class="modal" id="send-modal">
+    <div class="modal-content">
+      <h2>📤 Send Value</h2>
+      <div class="send-form">
+        <label>Recipient Node ID</label>
+        <input type="text" id="send-to" placeholder="node-uuid-here">
+        <label>Recipient Public Key</label>
+        <input type="text" id="send-pubkey" placeholder="hex public key">
+        <label>Amount</label>
+        <input type="number" id="send-amount" min="1" value="1">
+        <p class="balance-info" id="max-send">Max: 0 ⛏</p>
+        <button class="btn" id="confirm-send">Send</button>
+      </div>
+      <button class="btn btn-secondary close-btn" id="close-send">Cancel</button>
+    </div>
   </div>
 
   <script type="module" src="/js/app.ts"></script>

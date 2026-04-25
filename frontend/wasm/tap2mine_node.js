@@ -30,6 +30,28 @@ export class WasmNode {
         wasm.wasmnode_add_move(this.__wbg_ptr, x, y);
     }
     /**
+     * Add a peer to known peers
+     * @param {string} node_id
+     * @param {string} public_key
+     * @returns {string}
+     */
+    add_peer(node_id, public_key) {
+        let deferred3_0;
+        let deferred3_1;
+        try {
+            const ptr0 = passStringToWasm0(node_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            const len0 = WASM_VECTOR_LEN;
+            const ptr1 = passStringToWasm0(public_key, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            const len1 = WASM_VECTOR_LEN;
+            const ret = wasm.wasmnode_add_peer(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+            deferred3_0 = ret[0];
+            deferred3_1 = ret[1];
+            return getStringFromWasm0(ret[0], ret[1]);
+        } finally {
+            wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+        }
+    }
+    /**
      * @param {number} delta
      */
     add_scroll(delta) {
@@ -48,6 +70,30 @@ export class WasmNode {
     chain_len() {
         const ret = wasm.wasmnode_chain_len(this.__wbg_ptr);
         return ret >>> 0;
+    }
+    /**
+     * Create a SEND block to send value to another node.
+     * Returns the block JSON or an error message.
+     * @param {string} to_node_id
+     * @param {string} to_pubkey
+     * @param {bigint} amount
+     * @returns {string}
+     */
+    create_send(to_node_id, to_pubkey, amount) {
+        let deferred3_0;
+        let deferred3_1;
+        try {
+            const ptr0 = passStringToWasm0(to_node_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            const len0 = WASM_VECTOR_LEN;
+            const ptr1 = passStringToWasm0(to_pubkey, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            const len1 = WASM_VECTOR_LEN;
+            const ret = wasm.wasmnode_create_send(this.__wbg_ptr, ptr0, len0, ptr1, len1, amount);
+            deferred3_0 = ret[0];
+            deferred3_1 = ret[1];
+            return getStringFromWasm0(ret[0], ret[1]);
+        } finally {
+            wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+        }
     }
     /**
      * @returns {number}
@@ -87,6 +133,13 @@ export class WasmNode {
         }
     }
     /**
+     * @returns {bigint}
+     */
+    get_balance() {
+        const ret = wasm.wasmnode_get_balance(this.__wbg_ptr);
+        return BigInt.asUintN(64, ret);
+    }
+    /**
      * @param {number} start
      * @param {number} limit
      * @returns {string}
@@ -111,6 +164,21 @@ export class WasmNode {
         let deferred1_1;
         try {
             const ret = wasm.wasmnode_get_entropy(this.__wbg_ptr);
+            deferred1_0 = ret[0];
+            deferred1_1 = ret[1];
+            return getStringFromWasm0(ret[0], ret[1]);
+        } finally {
+            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+        }
+    }
+    /**
+     * @returns {string}
+     */
+    get_peers() {
+        let deferred1_0;
+        let deferred1_1;
+        try {
+            const ret = wasm.wasmnode_get_peers(this.__wbg_ptr);
             deferred1_0 = ret[0];
             deferred1_1 = ret[1];
             return getStringFromWasm0(ret[0], ret[1]);
@@ -157,6 +225,56 @@ export class WasmNode {
     /**
      * @returns {string}
      */
+    node_id() {
+        let deferred1_0;
+        let deferred1_1;
+        try {
+            const ret = wasm.wasmnode_node_id(this.__wbg_ptr);
+            deferred1_0 = ret[0];
+            deferred1_1 = ret[1];
+            return getStringFromWasm0(ret[0], ret[1]);
+        } finally {
+            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+        }
+    }
+    /**
+     * @returns {string}
+     */
+    public_key() {
+        let deferred1_0;
+        let deferred1_1;
+        try {
+            const ret = wasm.wasmnode_public_key(this.__wbg_ptr);
+            deferred1_0 = ret[0];
+            deferred1_1 = ret[1];
+            return getStringFromWasm0(ret[0], ret[1]);
+        } finally {
+            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+        }
+    }
+    /**
+     * Receive a SEND block from a peer and create a RECEIVE confirmation.
+     * Returns the receive block JSON or an error.
+     * @param {string} send_block_json
+     * @returns {string}
+     */
+    receive_send(send_block_json) {
+        let deferred2_0;
+        let deferred2_1;
+        try {
+            const ptr0 = passStringToWasm0(send_block_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            const len0 = WASM_VECTOR_LEN;
+            const ret = wasm.wasmnode_receive_send(this.__wbg_ptr, ptr0, len0);
+            deferred2_0 = ret[0];
+            deferred2_1 = ret[1];
+            return getStringFromWasm0(ret[0], ret[1]);
+        } finally {
+            wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+        }
+    }
+    /**
+     * @returns {string}
+     */
     try_mine() {
         let deferred1_0;
         let deferred1_1;
@@ -192,7 +310,6 @@ export function create_node() {
 
 /**
  * Serialize the full node state into a single JSON string for file export.
- * The frontend wraps this in a .tap2mine file download.
  * @param {WasmNode} node
  * @returns {string}
  */
@@ -207,6 +324,29 @@ export function export_node(node) {
         return getStringFromWasm0(ret[0], ret[1]);
     } finally {
         wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
+ * Generate a handshake link for sharing with peers.
+ * @param {string} node_id
+ * @param {string} public_key
+ * @returns {string}
+ */
+export function generate_handshake_link(node_id, public_key) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(node_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(public_key, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.generate_handshake_link(ptr0, len0, ptr1, len1);
+        deferred3_0 = ret[0];
+        deferred3_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
     }
 }
 
@@ -244,6 +384,27 @@ export function load_node(keystore_json, chain_json) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return WasmNode.__wrap(ret[0]);
+}
+
+/**
+ * Parse a tap2mine:// handshake link or QR code content.
+ * Returns JSON with node_id, public_key, and optional WebRTC offer.
+ * @param {string} link
+ * @returns {string}
+ */
+export function parse_handshake_link(link) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(link, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.parse_handshake_link(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
 }
 function __wbg_get_imports() {
     const import0 = {
