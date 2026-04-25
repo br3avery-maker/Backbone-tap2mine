@@ -1,0 +1,20 @@
+# Binaries
+/tap2mine
+node/tap2mine
+
+# Dependencies
+node_modules/
+
+# Build output
+frontend/dist/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Tap2Mine data
+.tap2mine/

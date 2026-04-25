@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Backbone Tap2Mine</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>⛏️ Tap2Mine</h1>
+      <span class="status" id="status">disconnected</span>
+    </header>
+
+    <main>
+      <section class="card" id="node-info">
+        <h2>Node</h2>
+        <div class="info-grid">
+          <div><label>Node ID</label><span id="node-id">—</span></div>
+          <div><label>Chain</label><span id="chain-len">—</span></div>
+          <div><label>Genesis</label><span id="genesis-hash">—</span></div>
+          <div><label>Latest</label><span id="latest-hash">—</span></div>
+        </div>
+      </section>
+
+      <section class="card" id="entropy">
+        <h2>⚡ Entropy</h2>
+        <div class="tap-area" id="tap-area">
+          <p>Tap here to generate entropy</p>
+          <div class="tap-count" id="tap-count">0 taps</div>
+        </div>
+        <div class="seed-display">
+          <label>Current Seed</label>
+          <code id="entropy-seed">—</code>
+        </div>
+      </section>
+
+      <section class="card" id="chain">
+        <h2>Chain</h2>
+        <div id="blocks" class="block-list">
+          <p class="empty">No blocks yet</p>
+        </div>
+        <button id="refresh-chain" class="btn">Refresh</button>
+      </section>
+
+      <section class="card" id="peers">
+        <h2>Peers</h2>
+        <div id="peer-list">
+          <p class="empty">No connected peers</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="/js/app.ts"></script>
+</body>
+</html>
