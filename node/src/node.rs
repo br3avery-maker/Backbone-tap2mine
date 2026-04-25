@@ -253,8 +253,8 @@ impl Node {
     pub fn node_id(&self) -> &str { self.keystore.node_id() }
     pub fn public_key(&self) -> &str { self.keystore.public_key() }
 
-    /// Generate a CHAO address: chao_ + first 16 chars of public key
+    /// Generate a CHAO address: chao_0x + first 16 chars of public key
     pub fn chao_address(&self) -> String {
-        format!("chao_{}", &self.keystore.public_key()[..16.min(self.keystore.public_key().len())])
+        format!("chao_0x{}", &self.keystore.public_key()[..16.min(self.keystore.public_key().len())])
     }
 }

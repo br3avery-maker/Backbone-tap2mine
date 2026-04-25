@@ -1,7 +1,9 @@
 // Tap2Mine Frontend — pure Wasm, anonymous chains, P2P microtransactions
 import init, { create_node, load_node, export_node, import_node, parse_handshake_link, generate_handshake_link, WasmNode } from '../wasm/tap2mine_node.js';
+import { WebRTCPeerManager, PeerMessage } from './webrtc';
 
 let node: WasmNode | null = null;
+let peerManager: WebRTCPeerManager | null = null;
 
 // --- IndexedDB helpers ---
 const DB_NAME = 'tap2mine';
@@ -65,11 +67,10 @@ function renderNodeInfo() {
   if (!node) return;
   const info = JSON.parse(node.info());
   document.getElementById('node-id')!.textContent = truncate(info.node_id, 16);
+  document.getElementById('chao-address')!.textContent = info.chao_address || '—';
   document.getElementById('pub-key')!.textContent = truncate(info.public_key, 20);
   document.getElementById('chain-len')!.textContent = `${info.chain_len} blocks`;
-  document.getElementById('latest-hash')!.textContent = truncate(info.latest_hash, 16);
   document.getElementById('balance')!.textContent = `${info.balance_chao} $CHAO`;
-  document.getElementById('chao-address')!.textContent = info.chao_address || '—';
   document.getElementById('peers-count')!.textContent = `${info.peers} connected`;
 }
 
@@ -105,19 +106,31 @@ function renderBlocks() {
 }
 
 function renderPeers() {
-  if (!node) return;
+  if (!node || !peerManager) return;
   const container = document.getElementById('peer-list')!;
-  const peers = JSON.parse(node.get_peers()) as Array<Record<string, string>>;
+  const peers = peerManager.getConnectedPeers();
   if (peers.length === 0) {
-    container.innerHTML = '<p class="empty">No peers yet. Share your handshake link to connect.</p>';
+    container.innerHTML = '<p class="empty">No connected peers</p>';
     return;
   }
   container.innerHTML = peers.map(p => `
     <div class="peer-item">
-      <span class="peer-id">${truncate(p.node_id, 16)}</span>
-      <span class="peer-key">${truncate(p.public_key, 12)}</span>
+      <span class="peer-id">${truncate(p.nodeId, 16)}</span>
+      <span class="peer-state">${p.state}</span>
+      <button class="btn btn-small btn-disconnect" data-peer="${p.nodeId}">✕</button>
     </div>
   `).join('');
+
+  // Bind disconnect buttons
+  container.querySelectorAll('.btn-disconnect').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const peerId = (btn as HTMLElement).dataset.peer!;
+      peerManager?.disconnect(peerId);
+      node?.add_peer(peerId, ''); // Record disconnection
+      renderPeers();
+      renderNodeInfo();
+    });
+  });
 }
 
 function updateEntropy() {
@@ -127,13 +140,10 @@ function updateEntropy() {
   const seed = JSON.parse(node.get_entropy()) as { seed: string; ready: boolean };
   document.getElementById('entropy-seed')!.textContent = seed.seed ? truncate(seed.seed, 32) : '—';
 
-  // Update mining progress bar
   const progress = Math.min(100, Math.round((count / 64) * 100));
   const bar = document.getElementById('mining-progress')!;
   bar.style.width = `${progress}%`;
-  if (progress >= 100) {
-    bar.classList.add('ready');
-  }
+  if (progress >= 100) bar.classList.add('ready');
 }
 
 // --- Tap handling ---
@@ -162,7 +172,6 @@ function saveNodeFile() {
   a.href = URL.createObjectURL(blob);
   a.download = `tap2mine-node-${Date.now()}.tap2mine`;
   a.click();
-  URL.revokeObjectURL(a.href);
 }
 
 async function loadNodeFile(file: File) {
@@ -170,42 +179,114 @@ async function loadNodeFile(file: File) {
   try {
     node = import_node(text);
     setStatus('connected', 'loaded');
-    renderNodeInfo(); renderBlocks(); updateEntropy(); renderPeers();
+    renderAll();
     saveNode();
   } catch (e) {
-    alert('Invalid .tap2mine file: ' + (e instanceof Error ? e.message : e));
+    alert('Invalid .tap2mine file');
   }
 }
 
-// --- Handshake / P2P ---
-function showHandshakeQR() {
+// --- Peer Message Handler ---
+function handlePeerMessage(peerId: string, message: PeerMessage) {
   if (!node) return;
-  const link = generate_handshake_link(node.node_id(), node.public_key());
-  document.getElementById('handshake-link')!.textContent = link;
-  document.getElementById('handshake-modal')!.classList.add('active');
-}
 
-function closeHandshakeModal() {
-  document.getElementById('handshake-modal')!.classList.remove('active');
-}
-
-function handleHandshakeLink() {
-  if (!node) return;
-  const input = (document.getElementById('handshake-input') as HTMLInputElement).value.trim();
-  if (!input) return;
-
-  const parsed = JSON.parse(parse_handshake_link(input)) as Record<string, string>;
-  if (parsed.error) {
-    alert('Invalid handshake link: ' + parsed.error);
-    return;
+  switch (message.type) {
+    case 'transaction': {
+      const txData = message.data as Record<string, unknown>;
+      if (txData.block_type === 'send') {
+        // Received a send from peer — create receive confirmation
+        const result = node.receive_send(JSON.stringify(txData));
+        const parsed = JSON.parse(result);
+        if (parsed.error) {
+          console.error('Failed to receive transaction:', parsed.error);
+        } else {
+          // Send acknowledgment back
+          peerManager?.send(peerId, { type: 'handshake_ack', data: { received: true } });
+          renderBlocks();
+          renderNodeInfo();
+          saveNode();
+        }
+      }
+      break;
+    }
+    case 'ping':
+      peerManager?.send(peerId, { type: 'pong', data: {} });
+      break;
+    case 'pong':
+      console.log('Peer pong received');
+      break;
+    case 'handshake_ack':
+      console.log('Peer confirmed receipt');
+      break;
   }
+}
 
-  node.add_peer(parsed.id, parsed.pk);
-  renderNodeInfo();
-  renderPeers();
-  saveNode();
-  closeHandshakeModal();
-  alert('Peer added! You can now send and receive microtransactions.');
+// --- WebRTC Connection UI ---
+function showConnectModal() {
+  document.getElementById('connect-modal')!.classList.add('active');
+  // Reset form
+  document.getElementById('connect-mode')!.value = 'create';
+  document.getElementById('connect-step')!.textContent = '1';
+  showConnectStep(1);
+}
+
+function closeConnectModal() {
+  document.getElementById('connect-modal')!.classList.remove('active');
+}
+
+function showConnectStep(step: number) {
+  document.getElementById('connect-step')!.textContent = String(step);
+  document.querySelectorAll('.connect-step').forEach(el => {
+    (el as HTMLElement).style.display = 'none';
+  });
+  document.getElementById(`connect-step-${step}`)!.style.display = 'block';
+}
+
+async function handleCreateOffer() {
+  if (!node || !peerManager) return;
+
+  const offer = await peerManager.createOffer(node.node_id());
+  document.getElementById('offer-text')!.textContent = offer;
+  document.getElementById('copy-offer')!.onclick = () => {
+    navigator.clipboard.writeText(offer);
+    alert('Offer copied to clipboard!');
+  };
+  showConnectStep(2);
+}
+
+async function handleAcceptOffer() {
+  if (!node || !peerManager) return;
+
+  const offerText = (document.getElementById('answer-offer-input') as HTMLTextAreaElement).value.trim();
+  if (!offerText) { alert('Paste the offer text'); return; }
+
+  try {
+    const answer = await peerManager.acceptOffer(offerText, node.node_id());
+    document.getElementById('answer-text')!.textContent = answer;
+    document.getElementById('copy-answer')!.onclick = () => {
+      navigator.clipboard.writeText(answer);
+      alert('Answer copied! Send it back to the peer.');
+    };
+    showConnectStep(3);
+  } catch (e) {
+    alert('Invalid offer: ' + (e instanceof Error ? e.message : e));
+  }
+}
+
+async function handleAcceptAnswer() {
+  if (!peerManager) return;
+
+  const answerText = (document.getElementById('offer-answer-input') as HTMLTextAreaElement).value.trim();
+  if (!answerText) { alert('Paste the answer text'); return; }
+
+  try {
+    await peerManager.acceptAnswer(answerText);
+    showConnectStep(4);
+    renderPeers();
+    renderNodeInfo();
+  } catch (e) {
+    alert('Invalid answer: ' + (e instanceof Error ? e.message : e));
+  }
 }
 
 // --- Send Value ---
@@ -213,6 +294,15 @@ function showSendModal() {
   if (!node) return;
   document.getElementById('send-modal')!.classList.add('active');
   document.getElementById('max-send')!.textContent = `Max: ${node.get_balance()} $CHAO`;
+
+  // Populate peer dropdown
+  const select = document.getElementById('send-to-peer') as HTMLSelectElement;
+  if (peerManager) {
+    const peers = peerManager.getConnectedPeers();
+    select.innerHTML = peers.length === 0
+      ? '<option value="">No connected peers</option>'
+      : peers.map(p => `<option value="${p.nodeId}">${truncate(p.nodeId, 20)} (${p.chaoAddress || p.public_key ? '✓' : '?'})</option>`).join('');
+  }
 }
 
 function closeSendModal() {
@@ -220,27 +310,51 @@ function closeSendModal() {
 }
 
 function handleSend() {
-  if (!node) return;
-  const toNodeId = (document.getElementById('send-to') as HTMLInputElement).value.trim();
-  const toPubkey = (document.getElementById('send-pubkey') as HTMLInputElement).value.trim();
+  if (!node || !peerManager) return;
+  const toPeerId = (document.getElementById('send-to-peer') as HTMLSelectElement).value;
   const amount = parseInt((document.getElementById('send-amount') as HTMLInputElement).value, 10);
 
-  if (!toNodeId || !toPubkey || !amount || amount <= 0) {
-    alert('Please fill in all fields with valid values.');
+  if (!toPeerId || !amount || amount <= 0) {
+    alert('Please select a peer and enter a valid amount.');
     return;
   }
 
-  const result = JSON.parse(node.create_send(toNodeId, toPubkey, amount));
+  const peer = peerManager.getPeer(toPeerId);
+  if (!peer) {
+    alert('Peer not found');
+    return;
+  }
+
+  const result = JSON.parse(node.create_send(toPeerId, peer.publicKey || '', amount));
   if (result.error) {
     alert('Send failed: ' + result.error);
     return;
   }
 
+  // Send the block over WebRTC
+  const sent = peerManager.send(toPeerId, {
+    type: 'transaction',
+    data: result,
+  });
+
   renderBlocks();
   renderNodeInfo();
   saveNode();
   closeSendModal();
-  alert(`Sent ${amount} $CHAO to ${truncate(toNodeId, 16)}. Waiting for confirmation...`);
+
+  if (sent) {
+    alert(`Sent ${amount} $CHAO to ${truncate(toPeerId, 16)}. Awaiting confirmation...`);
+  } else {
+    alert(`Block created but peer is disconnected. Transaction saved to your chain.`);
+  }
+}
+
+// --- Helper ---
+function renderAll() {
+  renderNodeInfo();
+  renderBlocks();
+  renderPeers();
+  updateEntropy();
 }
 
 // --- Init ---
@@ -251,7 +365,11 @@ async function main() {
     const stored = await loadStoredNode();
     if (stored) { node = stored; setStatus('connected', 'restored'); }
     else { node = create_node(); setStatus('connected', 'new node'); saveNode(); }
-    renderNodeInfo(); renderBlocks(); updateEntropy(); renderPeers();
+
+    // Initialize WebRTC peer manager
+    peerManager = new WebRTCPeerManager(handlePeerMessage);
+
+    renderAll();
   } catch (e) {
     console.error('Wasm init failed:', e);
     setStatus('disconnected', 'wasm failed');
@@ -264,25 +382,41 @@ tapArea.addEventListener('click', e => handleTap(e.clientX, e.clientY));
 tapArea.addEventListener('touchstart', e => { e.preventDefault(); handleTap(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
 document.addEventListener('mousemove', e => { if (node && Math.random() < 0.1) { node.add_move(e.clientX, e.clientY); updateEntropy(); } });
 window.addEventListener('scroll', () => { if (node && Math.random() < 0.3) { node.add_scroll(window.scrollY); updateEntropy(); } }, { passive: true });
-document.getElementById('refresh-chain')!.addEventListener('click', () => { renderNodeInfo(); renderBlocks(); updateEntropy(); renderPeers(); });
+
+document.getElementById('refresh-chain')!.addEventListener('click', renderAll);
 document.getElementById('save-node')!.addEventListener('click', saveNodeFile);
 document.getElementById('load-node')!.addEventListener('change', e => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) loadNodeFile(f); });
 
 // P2P events
-document.getElementById('show-handshake')!.addEventListener('click', showHandshakeQR);
-document.getElementById('close-handshake')!.addEventListener('click', closeHandshakeModal);
-document.getElementById('accept-handshake')!.addEventListener('click', handleHandshakeLink);
+document.getElementById('show-connect')!.addEventListener('click', showConnectModal);
+document.getElementById('close-connect')!.addEventListener('click', closeConnectModal);
+document.getElementById('create-offer-btn')!.addEventListener('click', handleCreateOffer);
+document.getElementById('accept-offer-btn')!.addEventListener('click', handleAcceptOffer);
+document.getElementById('accept-answer-btn')!.addEventListener('click', handleAcceptAnswer);
+document.getElementById('close-connect-final')!.addEventListener('click', closeConnectModal);
+
+// Mode switch in connect modal
+document.getElementById('connect-mode')!.addEventListener('change', e => {
+  const mode = (e.target as HTMLSelectElement).value;
+  if (mode === 'create') {
+    showConnectStep(1);
+  } else {
+    showConnectStep(2);
+  }
+});
+
 document.getElementById('show-send')!.addEventListener('click', showSendModal);
 document.getElementById('close-send')!.addEventListener('click', closeSendModal);
 document.getElementById('confirm-send')!.addEventListener('click', handleSend);
 
-// Check for handshake link in URL
+// Auto-detect handshake links in URL
 const urlParams = new URLSearchParams(window.location.search);
 if (urlParams.has('pk') && urlParams.has('id')) {
-  const link = `tap2mine://peer?pk=${urlParams.get('pk')}&id=${urlParams.get('id')}`;
   setTimeout(() => {
-    (document.getElementById('handshake-input') as HTMLInputElement).value = link;
-    showHandshakeQR();
+    showConnectModal();
+    showConnectStep(2);
+    (document.getElementById('connect-mode') as HTMLSelectElement).value = 'answer';
+    showConnectStep(2);
   }, 2000);
 }
 
