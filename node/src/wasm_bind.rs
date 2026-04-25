@@ -1,5 +1,5 @@
 //! Wasm-bindgen bindings for the browser frontend.
-//! Only compiled when targeting wasm32.
+//! Exports the Node as a WasmNode class with a clean JS API.
 
 use wasm_bindgen::prelude::*;
 use crate::Node;
@@ -10,7 +10,7 @@ pub fn init_wasm() {
 }
 
 /// Wasm wrapper around the core Node.
-/// The native Node has no wasm_bindgen attributes; this struct bridges them.
+/// The core Node has no wasm_bindgen attributes; this struct bridges them.
 #[wasm_bindgen]
 pub struct WasmNode {
     inner: Node,
@@ -51,4 +51,34 @@ pub fn load_node(keystore_json: &str, chain_json: &str) -> Result<WasmNode, JsEr
     Node::from_data(keystore_json, chain_json)
         .map(|inner| WasmNode { inner })
         .map_err(|e| JsError::new(&e))
+}
+
+/// Serialize the full node state into a single JSON string for file export.
+/// The frontend wraps this in a .tap2mine file download.
+#[wasm_bindgen]
+pub fn export_node(node: &WasmNode) -> String {
+    serde_json::json!({
+        "version": 1,
+        "keystore": serde_json::from_str::<serde_json::Value>(&node.inner.export_keystore()).unwrap_or(serde_json::Value::Null),
+        "chain": serde_json::from_str::<serde_json::Value>(&node.inner.export_chain()).unwrap_or(serde_json::Value::Null),
+    }).to_string()
+}
+
+/// Load a node from a .tap2mine file content (JSON string).
+#[wasm_bindgen]
+pub fn import_node(data_json: &str) -> Result<WasmNode, JsError> {
+    let data: serde_json::Value = serde_json::from_str(data_json)
+        .map_err(|e| JsError::new(&format!("Invalid node file: {}", e)))?;
+
+    let version = data["version"].as_u64().unwrap_or(0);
+    if version != 1 {
+        return Err(JsError::new(&format!("Unsupported version: {}", version)));
+    }
+
+    let ks = data["keystore"].to_string();
+    let chain = data["chain"].to_string();
+
+    Node::from_data(&ks, &chain)
+        .map(|inner| WasmNode { inner })
+        .map_err(|e| JsError::new(&format!("Invalid node data: {}", e)))
 }

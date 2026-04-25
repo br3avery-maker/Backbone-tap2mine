@@ -3,7 +3,7 @@
 
 /**
  * Wasm wrapper around the core Node.
- * The native Node has no wasm_bindgen attributes; this struct bridges them.
+ * The core Node has no wasm_bindgen attributes; this struct bridges them.
  */
 export class WasmNode {
     free(): void;
@@ -26,6 +26,17 @@ export class WasmNode {
 
 export function create_node(): WasmNode;
 
+/**
+ * Serialize the full node state into a single JSON string for file export.
+ * The frontend wraps this in a .tap2mine file download.
+ */
+export function export_node(node: WasmNode): string;
+
+/**
+ * Load a node from a .tap2mine file content (JSON string).
+ */
+export function import_node(data_json: string): WasmNode;
+
 export function init_wasm(): void;
 
 export function load_node(keystore_json: string, chain_json: string): WasmNode;
@@ -36,6 +47,8 @@ export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_wasmnode_free: (a: number, b: number) => void;
     readonly create_node: () => number;
+    readonly export_node: (a: number) => [number, number];
+    readonly import_node: (a: number, b: number) => [number, number, number];
     readonly init_wasm: () => void;
     readonly load_node: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly wasmnode_add_move: (a: number, b: number, c: number) => void;
@@ -55,10 +68,10 @@ export interface InitOutput {
     readonly __wbindgen_exn_store: (a: number) => void;
     readonly __externref_table_alloc: () => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;
+    readonly __wbindgen_free: (a: number, b: number, c: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __externref_table_dealloc: (a: number) => void;
-    readonly __wbindgen_free: (a: number, b: number, c: number) => void;
     readonly __wbindgen_start: () => void;
 }
 

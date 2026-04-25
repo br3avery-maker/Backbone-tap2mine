@@ -1,9 +1,9 @@
-use serde::{Serialize, Deserialize};
 use sha2::{Sha256, Digest};
+use serde::{Serialize, Deserialize};
 use crate::crypto::Keystore;
 
 pub fn create_genesis(ks: &Keystore) -> Block {
-    let ts = crate::now_ms();
+    let ts = js_sys::Date::now() as i64;
     let content = format!("genesis:{}:{}:{}", ks.node_id(), ts, ks.public_key());
     let hash = hex::encode(Sha256::digest(content.as_bytes()));
     let sig = ks.sign(content.as_bytes());
@@ -37,7 +37,7 @@ pub struct Tx {
 
 impl Block {
     pub fn from_prev(prev: &Block, ks: &Keystore, seed: &str) -> Self {
-        let ts = crate::now_ms();
+        let ts = js_sys::Date::now() as i64;
         let content = format!("{}:{}:{}", prev.hash, ts, seed);
         let hash = hex::encode(Sha256::digest(content.as_bytes()));
         let sig = ks.sign(content.as_bytes());

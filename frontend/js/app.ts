@@ -1,5 +1,5 @@
-// Tap2Mine Frontend — loads Wasm node and provides UI
-import init, { create_node, load_node, WasmNode } from '../wasm/tap2mine_node.js';
+// Tap2Mine Frontend — pure Wasm, zero install, anonymous chains
+import init, { create_node, load_node, export_node, import_node, WasmNode } from '../wasm/tap2mine_node.js';
 
 let node: WasmNode | null = null;
 
@@ -25,8 +25,7 @@ async function saveNode(): Promise<void> {
   const db = await openDB();
   const tx = db.transaction('node', 'readwrite');
   const store = tx.objectStore('node');
-  store.put(node.export_keystore(), 'keystore');
-  store.put(node.export_chain(), 'chain');
+  store.put(export_node(node), 'full');
   return new Promise((resolve, reject) => {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
@@ -38,12 +37,11 @@ async function loadStoredNode(): Promise<WasmNode | null> {
     const db = await openDB();
     const tx = db.transaction('node', 'readonly');
     const store = tx.objectStore('node');
-    const ksReq = store.get('keystore');
-    const chReq = store.get('chain');
+    const req = store.get('full');
     return new Promise((resolve) => {
       tx.oncomplete = () => {
-        if (ksReq.result && chReq.result) {
-          try { resolve(load_node(ksReq.result, chReq.result)); }
+        if (req.result) {
+          try { resolve(import_node(req.result)); }
           catch { resolve(null); }
         } else { resolve(null); }
       };
@@ -119,24 +117,33 @@ function handleTap(x: number, y: number) {
   updateEntropy();
 }
 
-// --- Export / Import ---
-function exportKeystore() {
+// --- File export/import ---
+
+/** Download the full node as a .tap2mine file */
+function saveNodeFile() {
   if (!node) return;
-  const blob = new Blob([node.export_keystore()], { type: 'application/json' });
+  const json = export_node(node);
+  const blob = new Blob([json], { type: 'application/octet-stream' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `tap2mine-keystore-${Date.now()}.json`;
+  a.download = `tap2mine-node-${Date.now()}.tap2mine`;
   a.click();
+  URL.revokeObjectURL(a.href);
 }
 
-async function importKeystore(file: File) {
+/** Load a node from a .tap2mine file */
+async function loadNodeFile(file: File) {
   const text = await file.text();
   try {
-    node = create_node();
-    setStatus('connected', 'imported');
-    renderNodeInfo(); renderBlocks(); saveNode();
-    alert('Keystore imported (new chain)');
-  } catch { alert('Invalid keystore file'); }
+    node = import_node(text);
+    setStatus('connected', 'loaded');
+    renderNodeInfo();
+    renderBlocks();
+    updateEntropy();
+    saveNode();
+  } catch (e) {
+    alert('Invalid .tap2mine file: ' + (e instanceof Error ? e.message : e));
+  }
 }
 
 // --- Init ---
@@ -161,7 +168,7 @@ tapArea.addEventListener('touchstart', e => { e.preventDefault(); handleTap(e.to
 document.addEventListener('mousemove', e => { if (node && Math.random() < 0.1) { node.add_move(e.clientX, e.clientY); updateEntropy(); } });
 window.addEventListener('scroll', () => { if (node && Math.random() < 0.3) { node.add_scroll(window.scrollY); updateEntropy(); } }, { passive: true });
 document.getElementById('refresh-chain')!.addEventListener('click', () => { renderNodeInfo(); renderBlocks(); updateEntropy(); });
-document.getElementById('export-wallet')!.addEventListener('click', exportKeystore);
-document.getElementById('import-wallet')!.addEventListener('change', e => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) importKeystore(f); });
+document.getElementById('save-node')!.addEventListener('click', saveNodeFile);
+document.getElementById('load-node')!.addEventListener('change', e => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) loadNodeFile(f); });
 
 main();

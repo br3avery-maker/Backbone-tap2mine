@@ -13,17 +13,17 @@ impl EntropyPool {
     }
 
     pub fn add_tap(&mut self, x: f64, y: f64) {
-        self.buffer.push(format!("tap:{}:{}:{}", crate::now_ms(), x, y));
+        self.buffer.push(format!("tap:{}:{}:{}", js_sys::Date::now(), x, y));
         self.trim();
     }
 
     pub fn add_move(&mut self, x: f64, y: f64) {
-        self.buffer.push(format!("move:{}:{}:{}", crate::now_ms(), x, y));
+        self.buffer.push(format!("move:{}:{}:{}", js_sys::Date::now(), x, y));
         self.trim();
     }
 
     pub fn add_scroll(&mut self, delta: f64) {
-        self.buffer.push(format!("scroll:{}:{}", crate::now_ms(), delta));
+        self.buffer.push(format!("scroll:{}:{}", js_sys::Date::now(), delta));
         self.trim();
     }
 

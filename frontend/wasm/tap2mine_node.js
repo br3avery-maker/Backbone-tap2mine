@@ -2,7 +2,7 @@
 
 /**
  * Wasm wrapper around the core Node.
- * The native Node has no wasm_bindgen attributes; this struct bridges them.
+ * The core Node has no wasm_bindgen attributes; this struct bridges them.
  */
 export class WasmNode {
     static __wrap(ptr) {
@@ -190,6 +190,41 @@ export function create_node() {
     return WasmNode.__wrap(ret);
 }
 
+/**
+ * Serialize the full node state into a single JSON string for file export.
+ * The frontend wraps this in a .tap2mine file download.
+ * @param {WasmNode} node
+ * @returns {string}
+ */
+export function export_node(node) {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        _assertClass(node, WasmNode);
+        const ret = wasm.export_node(node.__wbg_ptr);
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
+ * Load a node from a .tap2mine file content (JSON string).
+ * @param {string} data_json
+ * @returns {WasmNode}
+ */
+export function import_node(data_json) {
+    const ptr0 = passStringToWasm0(data_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.import_node(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return WasmNode.__wrap(ret[0]);
+}
+
 export function init_wasm() {
     wasm.init_wasm();
 }
@@ -346,6 +381,12 @@ function addToExternrefTable0(obj) {
     const idx = wasm.__externref_table_alloc();
     wasm.__wbindgen_externrefs.set(idx, obj);
     return idx;
+}
+
+function _assertClass(instance, klass) {
+    if (!(instance instanceof klass)) {
+        throw new Error(`expected instance of ${klass.name}`);
+    }
 }
 
 function getArrayU8FromWasm0(ptr, len) {
