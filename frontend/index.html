@@ -10,7 +10,7 @@
   <div class="app">
     <header>
       <h1>⛏️ Tap2Mine</h1>
-      <span class="status" id="status">disconnected</span>
+      <span class="status disconnected" id="status">loading…</span>
     </header>
 
     <main>
@@ -18,8 +18,8 @@
         <h2>Node</h2>
         <div class="info-grid">
           <div><label>Node ID</label><span id="node-id">—</span></div>
+          <div><label>Public Key</label><span id="pub-key">—</span></div>
           <div><label>Chain</label><span id="chain-len">—</span></div>
-          <div><label>Genesis</label><span id="genesis-hash">—</span></div>
           <div><label>Latest</label><span id="latest-hash">—</span></div>
         </div>
       </section>
@@ -27,8 +27,8 @@
       <section class="card" id="entropy">
         <h2>⚡ Entropy</h2>
         <div class="tap-area" id="tap-area">
-          <p>Tap here to generate entropy</p>
-          <div class="tap-count" id="tap-count">0 taps</div>
+          <p>Tap here to mine</p>
+          <div class="tap-count" id="tap-count">0 events</div>
         </div>
         <div class="seed-display">
           <label>Current Seed</label>
@@ -44,13 +44,21 @@
         <button id="refresh-chain" class="btn">Refresh</button>
       </section>
 
-      <section class="card" id="peers">
-        <h2>Peers</h2>
-        <div id="peer-list">
-          <p class="empty">No connected peers</p>
+      <section class="card" id="wallet">
+        <h2>Wallet</h2>
+        <div class="wallet-actions">
+          <button class="btn btn-secondary" id="export-wallet">Export Keystore</button>
+          <label class="btn btn-secondary file-btn">
+            Import Keystore
+            <input type="file" id="import-wallet" accept=".json" hidden>
+          </label>
         </div>
       </section>
     </main>
+
+    <footer>
+      <p>Backbone Tap2Mine — Decentralized blocklattice node in WebAssembly</p>
+    </footer>
   </div>
 
   <script type="module" src="/js/app.ts"></script>
