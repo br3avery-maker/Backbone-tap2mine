@@ -1,10 +1,9 @@
 // Tap2Mine Frontend — loads Wasm node and provides UI
-// Expects: /wasm/tap2mine_node_bg.wasm and /wasm/tap2mine_node.js (from cargo build or wasm-pack)
 
-import init, { create_node, load_node, Node } from '../../wasm/tap2mine_node.js';
+import { init, create_node, load_node, nodeInfo, nodeGetChain, nodeAddTap, nodeAddMove, nodeAddScroll, nodeTryMine, nodeGetEntropy, nodeEntropyCount, nodeChainLen, nodeExportKeystore, nodeExportChain, nodeVerifyBlock, nodeLatestBlock } from './wasm-loader';
 
-let node: Node | null = null;
-let tapCount = 0;
+let nodePtr: number = 0;
+let loaded = false;
 
 // --- IndexedDB helpers ---
 
@@ -26,19 +25,19 @@ function openDB(): Promise<IDBDatabase> {
 }
 
 async function saveNode(): Promise<void> {
-  if (!node) return;
+  if (!nodePtr) return;
   const db = await openDB();
   const tx = db.transaction('node', 'readwrite');
   const store = tx.objectStore('node');
-  store.put(node.export_keystore(), 'keystore');
-  store.put(node.export_chain(), 'chain');
+  store.put(nodeExportKeystore(nodePtr), 'keystore');
+  store.put(nodeExportChain(nodePtr), 'chain');
   return new Promise((resolve, reject) => {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
 }
 
-async function loadStoredNode(): Promise<Node | null> {
+async function loadStoredNode(): Promise<number> {
   try {
     const db = await openDB();
     const tx = db.transaction('node', 'readonly');
@@ -54,16 +53,16 @@ async function loadStoredNode(): Promise<Node | null> {
           try {
             resolve(load_node(ks, chain));
           } catch {
-            resolve(null);
+            resolve(0);
           }
         } else {
-          resolve(null);
+          resolve(0);
         }
       };
-      tx.onerror = () => resolve(null);
+      tx.onerror = () => resolve(0);
     });
   } catch {
-    return null;
+    return 0;
   }
 }
 
@@ -81,8 +80,8 @@ function truncate(str: string, len = 12): string {
 }
 
 function renderNodeInfo() {
-  if (!node) return;
-  const info = JSON.parse(node.info());
+  if (!nodePtr) return;
+  const info = JSON.parse(nodeInfo(nodePtr));
   document.getElementById('node-id')!.textContent = truncate(info.node_id, 16);
   document.getElementById('pub-key')!.textContent = truncate(info.public_key, 20);
   document.getElementById('chain-len')!.textContent = `${info.chain_len} blocks`;
@@ -90,9 +89,9 @@ function renderNodeInfo() {
 }
 
 function renderBlocks() {
-  if (!node) return;
+  if (!nodePtr) return;
   const container = document.getElementById('blocks')!;
-  const blocks = JSON.parse(node.get_chain(0, 100)) as Array<Record<string, unknown>>;
+  const blocks = JSON.parse(nodeGetChain(nodePtr, 0, 100)) as Array<Record<string, unknown>>;
 
   if (blocks.length === 0) {
     container.innerHTML = '<p class="empty">No blocks yet</p>';
@@ -121,11 +120,11 @@ function renderBlocks() {
 }
 
 function updateEntropy() {
-  if (!node) return;
-  const count = node.entropy_count();
+  if (!nodePtr) return;
+  const count = nodeEntropyCount(nodePtr);
   document.getElementById('tap-count')!.textContent = `${count} event${count !== 1 ? 's' : ''}`;
 
-  const seedJson = node.get_entropy();
+  const seedJson = nodeGetEntropy(nodePtr);
   const seed = JSON.parse(seedJson) as { seed: string; ready: boolean };
   document.getElementById('entropy-seed')!.textContent = seed.seed ? truncate(seed.seed, 32) : '—';
 }
@@ -133,9 +132,8 @@ function updateEntropy() {
 // --- Tap handling ---
 
 function handleTap(x: number, y: number) {
-  if (!node) return;
-  node.add_tap(x, y);
-  tapCount++;
+  if (!nodePtr) return;
+  nodeAddTap(nodePtr, x, y);
 
   // Visual feedback
   const area = document.getElementById('tap-area')!;
@@ -143,7 +141,7 @@ function handleTap(x: number, y: number) {
   setTimeout(() => area.classList.remove('tapped'), 150);
 
   // Try to mine
-  const newBlock = node.try_mine();
+  const newBlock = nodeTryMine(nodePtr);
   if (newBlock) {
     renderBlocks();
     renderNodeInfo();
@@ -156,8 +154,8 @@ function handleTap(x: number, y: number) {
 // --- Export / Import ---
 
 function exportKeystore() {
-  if (!node) return;
-  const json = node.export_keystore();
+  if (!nodePtr) return;
+  const json = nodeExportKeystore(nodePtr);
   const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -171,16 +169,14 @@ async function importKeystore(file: File) {
   const text = await file.text();
   try {
     const parsed = JSON.parse(text);
-    // We need both keystore and chain to fully restore
-    // For now, load the keystore and create a new chain
-    // A proper import would have both
-    node = create_node();
-    setStatus('connected');
+    // Create new node with imported keystore data
+    nodePtr = create_node();
+    setStatus('connected', 'imported');
     renderNodeInfo();
     renderBlocks();
     saveNode();
-    alert('Loaded from keystore (new chain created)');
-  } catch (e) {
+    alert('Keystore imported (new chain created)');
+  } catch {
     alert('Invalid keystore file');
   }
 }
@@ -193,13 +189,14 @@ async function main() {
   try {
     await init();
 
-    // Try to load existing node from IndexedDB
     const stored = await loadStoredNode();
     if (stored) {
-      node = stored;
+      nodePtr = stored;
+      loaded = true;
       setStatus('connected', 'restored');
     } else {
-      node = create_node();
+      nodePtr = create_node();
+      loaded = true;
       setStatus('connected', 'new node');
       saveNode();
     }
@@ -217,45 +214,38 @@ async function main() {
 
 const tapArea = document.getElementById('tap-area')!;
 
-// Mouse click
 tapArea.addEventListener('click', (e) => {
   handleTap(e.clientX, e.clientY);
 });
 
-// Touch
 tapArea.addEventListener('touchstart', (e) => {
   e.preventDefault();
   const touch = e.touches[0];
   handleTap(touch.clientX, touch.clientY);
 }, { passive: false });
 
-// Mouse move (adds entropy too)
 document.addEventListener('mousemove', (e) => {
-  if (node && Math.random() < 0.1) { // throttle: ~10% of moves
-    node.add_move(e.clientX, e.clientY);
+  if (nodePtr && Math.random() < 0.1) {
+    nodeAddMove(nodePtr, e.clientX, e.clientY);
     updateEntropy();
   }
 });
 
-// Scroll
 window.addEventListener('scroll', () => {
-  if (node && Math.random() < 0.3) {
-    node.add_scroll(window.scrollY);
+  if (nodePtr && Math.random() < 0.3) {
+    nodeAddScroll(nodePtr, window.scrollY);
     updateEntropy();
   }
 }, { passive: true });
 
-// Refresh button
 document.getElementById('refresh-chain')!.addEventListener('click', () => {
   renderNodeInfo();
   renderBlocks();
   updateEntropy();
 });
 
-// Export
 document.getElementById('export-wallet')!.addEventListener('click', exportKeystore);
 
-// Import
 document.getElementById('import-wallet')!.addEventListener('change', (e) => {
   const file = (e.target as HTMLInputElement).files?.[0];
   if (file) importKeystore(file);
