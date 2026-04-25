@@ -1,9 +1,10 @@
 // Tap2Mine Frontend — loads Wasm node and provides UI
+// Uses wasm-bindgen generated bindings from ../wasm/tap2mine_node.js
 
-import { init, create_node, load_node, nodeInfo, nodeGetChain, nodeAddTap, nodeAddMove, nodeAddScroll, nodeTryMine, nodeGetEntropy, nodeEntropyCount, nodeChainLen, nodeExportKeystore, nodeExportChain, nodeVerifyBlock, nodeLatestBlock } from './wasm-loader';
+import init, { create_node, load_node } from '../wasm/tap2mine_node.js';
+import type { Node } from '../wasm/tap2mine_node.js';
 
-let nodePtr: number = 0;
-let loaded = false;
+let node: Node | null = null;
 
 // --- IndexedDB helpers ---
 
@@ -25,19 +26,19 @@ function openDB(): Promise<IDBDatabase> {
 }
 
 async function saveNode(): Promise<void> {
-  if (!nodePtr) return;
+  if (!node) return;
   const db = await openDB();
   const tx = db.transaction('node', 'readwrite');
   const store = tx.objectStore('node');
-  store.put(nodeExportKeystore(nodePtr), 'keystore');
-  store.put(nodeExportChain(nodePtr), 'chain');
+  store.put(node.export_keystore(), 'keystore');
+  store.put(node.export_chain(), 'chain');
   return new Promise((resolve, reject) => {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
 }
 
-async function loadStoredNode(): Promise<number> {
+async function loadStoredNode(): Promise<Node | null> {
   try {
     const db = await openDB();
     const tx = db.transaction('node', 'readonly');
@@ -50,20 +51,13 @@ async function loadStoredNode(): Promise<number> {
         const ks = keystoreReq.result;
         const chain = chainReq.result;
         if (ks && chain) {
-          try {
-            resolve(load_node(ks, chain));
-          } catch {
-            resolve(0);
-          }
-        } else {
-          resolve(0);
-        }
+          try { resolve(load_node(ks, chain)); }
+          catch { resolve(null); }
+        } else { resolve(null); }
       };
-      tx.onerror = () => resolve(0);
+      tx.onerror = () => resolve(null);
     });
-  } catch {
-    return 0;
-  }
+  } catch { return null; }
 }
 
 // --- UI helpers ---
@@ -80,8 +74,8 @@ function truncate(str: string, len = 12): string {
 }
 
 function renderNodeInfo() {
-  if (!nodePtr) return;
-  const info = JSON.parse(nodeInfo(nodePtr));
+  if (!node) return;
+  const info = JSON.parse(node.info());
   document.getElementById('node-id')!.textContent = truncate(info.node_id, 16);
   document.getElementById('pub-key')!.textContent = truncate(info.public_key, 20);
   document.getElementById('chain-len')!.textContent = `${info.chain_len} blocks`;
@@ -89,9 +83,9 @@ function renderNodeInfo() {
 }
 
 function renderBlocks() {
-  if (!nodePtr) return;
+  if (!node) return;
   const container = document.getElementById('blocks')!;
-  const blocks = JSON.parse(nodeGetChain(nodePtr, 0, 100)) as Array<Record<string, unknown>>;
+  const blocks = JSON.parse(node.get_chain(0, 100)) as Array<Record<string, unknown>>;
 
   if (blocks.length === 0) {
     container.innerHTML = '<p class="empty">No blocks yet</p>';
@@ -120,11 +114,10 @@ function renderBlocks() {
 }
 
 function updateEntropy() {
-  if (!nodePtr) return;
-  const count = nodeEntropyCount(nodePtr);
+  if (!node) return;
+  const count = node.entropy_count();
   document.getElementById('tap-count')!.textContent = `${count} event${count !== 1 ? 's' : ''}`;
-
-  const seedJson = nodeGetEntropy(nodePtr);
+  const seedJson = node.get_entropy();
   const seed = JSON.parse(seedJson) as { seed: string; ready: boolean };
   document.getElementById('entropy-seed')!.textContent = seed.seed ? truncate(seed.seed, 32) : '—';
 }
@@ -132,30 +125,27 @@ function updateEntropy() {
 // --- Tap handling ---
 
 function handleTap(x: number, y: number) {
-  if (!nodePtr) return;
-  nodeAddTap(nodePtr, x, y);
+  if (!node) return;
+  node.add_tap(x, y);
 
-  // Visual feedback
   const area = document.getElementById('tap-area')!;
   area.classList.add('tapped');
   setTimeout(() => area.classList.remove('tapped'), 150);
 
-  // Try to mine
-  const newBlock = nodeTryMine(nodePtr);
+  const newBlock = node.try_mine();
   if (newBlock) {
     renderBlocks();
     renderNodeInfo();
     saveNode();
   }
-
   updateEntropy();
 }
 
 // --- Export / Import ---
 
 function exportKeystore() {
-  if (!nodePtr) return;
-  const json = nodeExportKeystore(nodePtr);
+  if (!node) return;
+  const json = node.export_keystore();
   const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -169,8 +159,7 @@ async function importKeystore(file: File) {
   const text = await file.text();
   try {
     const parsed = JSON.parse(text);
-    // Create new node with imported keystore data
-    nodePtr = create_node();
+    node = create_node();
     setStatus('connected', 'imported');
     renderNodeInfo();
     renderBlocks();
@@ -191,12 +180,10 @@ async function main() {
 
     const stored = await loadStoredNode();
     if (stored) {
-      nodePtr = stored;
-      loaded = true;
+      node = stored;
       setStatus('connected', 'restored');
     } else {
-      nodePtr = create_node();
-      loaded = true;
+      node = create_node();
       setStatus('connected', 'new node');
       saveNode();
     }
@@ -210,45 +197,31 @@ async function main() {
   }
 }
 
-// --- Event listeners ---
+// --- Events ---
 
 const tapArea = document.getElementById('tap-area')!;
-
-tapArea.addEventListener('click', (e) => {
-  handleTap(e.clientX, e.clientY);
-});
-
+tapArea.addEventListener('click', (e) => handleTap(e.clientX, e.clientY));
 tapArea.addEventListener('touchstart', (e) => {
   e.preventDefault();
-  const touch = e.touches[0];
-  handleTap(touch.clientX, touch.clientY);
+  handleTap(e.touches[0].clientX, e.touches[0].clientY);
 }, { passive: false });
 
 document.addEventListener('mousemove', (e) => {
-  if (nodePtr && Math.random() < 0.1) {
-    nodeAddMove(nodePtr, e.clientX, e.clientY);
-    updateEntropy();
-  }
+  if (node && Math.random() < 0.1) { node.add_move(e.clientX, e.clientY); updateEntropy(); }
 });
 
 window.addEventListener('scroll', () => {
-  if (nodePtr && Math.random() < 0.3) {
-    nodeAddScroll(nodePtr, window.scrollY);
-    updateEntropy();
-  }
+  if (node && Math.random() < 0.3) { node.add_scroll(window.scrollY); updateEntropy(); }
 }, { passive: true });
 
 document.getElementById('refresh-chain')!.addEventListener('click', () => {
-  renderNodeInfo();
-  renderBlocks();
-  updateEntropy();
+  renderNodeInfo(); renderBlocks(); updateEntropy();
 });
 
 document.getElementById('export-wallet')!.addEventListener('click', exportKeystore);
-
 document.getElementById('import-wallet')!.addEventListener('change', (e) => {
-  const file = (e.target as HTMLInputElement).files?.[0];
-  if (file) importKeystore(file);
+  const f = (e.target as HTMLInputElement).files?.[0];
+  if (f) importKeystore(f);
 });
 
 main();
