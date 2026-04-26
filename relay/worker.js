@@ -9,7 +9,6 @@
 
 const MESSAGE_TTL = 60_000; // 60 seconds
 const MAX_MESSAGES_PER_NODE = 100;
-const CLEANUP_INTERVAL = 30_000;
 
 // In-memory stores (scoped to this worker isolate)
 const inbox = new Map();
@@ -33,7 +32,15 @@ function jsonResponse(data, status = 200) {
   });
 }
 
-function cleanup() {
+/**
+ * Lazy cleanup — runs on every Nth request to avoid stale messages.
+ * Workers don't support setInterval at global scope.
+ */
+let requestCounter = 0;
+function maybeCleanup() {
+  requestCounter++;
+  if (requestCounter % 50 !== 0) return; // cleanup every ~50 requests
+
   const now = Date.now();
   for (const [nodeId, messages] of inbox) {
     const fresh = messages.filter(m => now - m.timestamp < MESSAGE_TTL);
@@ -42,12 +49,12 @@ function cleanup() {
   }
 }
 
-// Background cleanup — runs per-isolate
-setInterval(cleanup, CLEANUP_INTERVAL);
-
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+
+    // Lazy cleanup
+    maybeCleanup();
 
     // CORS preflight
     if (request.method === 'OPTIONS') {

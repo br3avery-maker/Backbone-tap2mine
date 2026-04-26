@@ -26,7 +26,7 @@ export type MessageHandler = (message: RelayMessage) => void;
 // Default relay list — shipped with the app, updated dynamically
 const DEFAULT_RELAYS: RelayServer[] = [
   // ── UPDATE THESE after deploying your relay! ──
-  { url: 'https://tap2mine-relay.your-account.workers.dev', status: 'unknown', lastCheck: 0, lastSuccess: 0, failures: 0 },
+  { url: 'https://tap2mine-relay.br3avery.workers.dev', status: 'unknown', lastCheck: 0, lastSuccess: 0, failures: 0 },
   { url: 'https://tap2mine-signal.pages.dev', status: 'unknown', lastCheck: 0, lastSuccess: 0, failures: 0 },
   { url: 'https://chao-relay.fly.dev', status: 'unknown', lastCheck: 0, lastSuccess: 0, failures: 0 },
 ];
