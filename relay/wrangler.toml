@@ -1,0 +1,7 @@
+name = "tap2mine-relay"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+# Free tier — no bindings needed, just stateless request handling
+# Note: Worker isolates can spin down; messages are ephemeral (60s TTL)
+# so this is acceptable for a signaling relay.
