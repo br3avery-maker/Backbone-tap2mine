@@ -1,7 +1,5 @@
 // Tap2Mine Frontend — pure Wasm, anonymous chains, P2P microtransactions
 import init, { create_node, load_node, export_node, import_node, parse_handshake_link, generate_handshake_link, WasmNode } from '../wasm/tap2mine_node.js';
-// Import the hashed wasm URL so Vite resolves it correctly
-import wasmUrl from '../wasm/tap2mine_node_bg.wasm?url';
 import { WebRTCPeerManager, PeerMessage } from './webrtc';
 import { RelayClient, RelayMessage } from './relay-client';
 
@@ -470,7 +468,7 @@ function renderAll() {
 async function main() {
   setStatus('loading', 'loading wasm…');
   try {
-    await init(wasmUrl);
+    await init();
     const stored = await loadStoredNode();
     if (stored) { node = stored; setStatus('connected', 'restored'); }
     else { node = create_node(); setStatus('connected', 'new node'); saveNode(); }
